@@ -11,6 +11,7 @@
 const CFG = {
   MARCAS_ID: '1cHUn_mu_7fuc_RyTimqZW_Kb08Y--DYYm886-wVZCXc',   // Excel de mínimas y mejores marcas
   PROG_ID: '11XhbiyIoxIy-zU0B29RDvOIw7tru7JI_rH3_FIe_wIk',     // Programación de entrenamientos
+  PINES_ID: '1iJe4cOKEiB2u2B_rPLBWYHlhUr__Td2sv8R9ETLm3v8',    // Usuarios y PIN (CONFIDENCIAL): aquí se cambian los PIN
   TITULO: 'Zona Nadadores CN Salou',
   CACHE_SEG: 600,      // los cálculos del Excel se guardan 10 min (se borran solos al editar el Excel)
   SESION_DIAS: 30,     // días que dura la sesión en el móvil antes de pedir el PIN otra vez
@@ -116,7 +117,7 @@ function instalar() {
 
 function generarUsuarios(silencio) {
   const D = computeData();
-  const sh = dataSS().getSheetByName(T_USERS);
+  const sh = pinesSheet();
   const users = usersRows();
   const have = {}; users.forEach(u => have[normName(u.name)] = 1);
   const seen = {}; users.forEach(u => seen[u.user] = 1);
@@ -128,10 +129,10 @@ function generarUsuarios(silencio) {
     while (seen[u]) u = base + (i++);
     seen[u] = 1;
     const pin = String(100000 + Math.floor(Math.random() * 900000));
-    sh.appendRow([a.name, u, pin, '', 'nadador']);
+    sh.appendRow([a.name, a.cat || '', a.year || '', u, pin]);
     out.push([a.name, u, 'PIN ' + pin]);
   });
-  if (silencio !== true) avisar(out.length ? 'Usuarios creados (el PIN queda en la hoja de datos, pestaña Usuarios):\n\n' + out.map(n => n.join(' · ')).join('\n') : 'No hay nadadores nuevos: todos los del Excel ya tienen usuario.');
+  if (silencio !== true) avisar(out.length ? 'Usuarios creados (el PIN queda en el documento «Usuarios y PIN»):\n\n' + out.map(n => n.join(' · ')).join('\n') : 'No hay nadadores nuevos: todos los del Excel ya tienen usuario.');
   return out;
 }
 
@@ -156,7 +157,7 @@ function login(user, pin) {
   if (fails >= 8) return { error: 'Demasiados intentos fallidos. Espera 10 minutos.' };
   const u = usersRows().find(x => x.user === user);
   let ok = false;
-  if (u) ok = u.pin ? u.pin === pin : (!!u.hash && sha256hex(prop('SALT') + ':' + user + ':' + pin) === u.hash);
+  if (u) ok = !!u.pin && u.pin === pin;
   if (!ok) { cache.put(fk, String(fails + 1), 600); return { error: 'Usuario o PIN incorrecto. Revisa que no haya espacios.' }; }
   cache.remove(fk);
   const exp = Date.now() + CFG.SESION_DIAS * 864e5;
@@ -459,11 +460,20 @@ function dataSS() {
   return SpreadsheetApp.openById(id);
 }
 
+// Lee el documento único de usuarios y PIN. Columnas por nombre de cabecera:
+// Nombre | Categoría | Año | Usuario | PIN  (Categoría «entrenador» = cuenta de entrenador)
+function pinesSheet() { return SpreadsheetApp.openById(CFG.PINES_ID).getSheets()[0]; }
+
 function usersRows() {
-  const sh = dataSS().getSheetByName(T_USERS);
-  return sh.getDataRange().getDisplayValues().slice(1).filter(r => r[1] && r[1].trim()).map(r => ({
-    name: r[0].trim(), user: r[1].trim().toLowerCase(), pin: r[2].trim(), hash: r[3].trim(), role: (r[4] || '').trim().toLowerCase()
-  }));
+  const v = pinesSheet().getDataRange().getDisplayValues();
+  const h = v[0].map(x => normName(x));
+  const col = n => h.indexOf(normName(n));
+  const cN = col('Nombre'), cC = col('Categoría'), cU = col('Usuario'), cP = col('PIN');
+  return v.slice(1).filter(r => r[cU] && r[cU].trim()).map(r => {
+    const cat = String(r[cC] || '').trim().toLowerCase();
+    return { name: String(r[cN] || '').replace(/\s*\(entrenador\)\s*$/i, '').trim(), user: r[cU].trim().toLowerCase(),
+      pin: String(r[cP] || '').trim(), hash: '', role: cat === 'entrenador' ? 'entrenador' : 'nadador' };
+  });
 }
 
 function withLock(fn) {
