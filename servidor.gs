@@ -91,7 +91,7 @@ function instalar() {
   const us = mk(T_USERS, ['Nombre', 'Usuario', 'PIN nuevo', 'Hash (no tocar)', 'Rol'], [240, 180, 100, 120, 100]);
   mk(T_EVAL, ['Id', 'Usuario', 'Competición', 'Fecha', 'Cómo ha ido', 'Aspectos positivos', 'Aspectos a mejorar'], [120, 160, 260, 100, 320, 240, 240]);
   mk(T_ATT, ['Fecha', 'Usuario', 'Estado (p = asistió, f = no asistió)'], [100, 180, 110]);
-  mk(T_TRAIN, ['Fecha', 'Usuario', 'Dureza (0 = no asistió)', 'Minutos', 'Comentario'], [100, 180, 150, 80, 320]);
+  mk(T_TRAIN, ['Fecha', 'Usuario', 'Dureza (1-5, 0 = no asistió)', '(sin uso)', 'Comentario', 'Sensaciones (1 = muy malas, 5 = muy buenas)'], [100, 180, 150, 60, 320, 160]);
   ss.deleteSheet(first);
   const rows = USUARIOS_INICIALES.lista.map(r => [r[0], r[1], '', r[2], r[3]]);
   us.getRange(2, 1, rows.length, 5).setValues(rows);
@@ -317,7 +317,7 @@ function store() {
   Object.keys(evals).forEach(k => evals[k].sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id.localeCompare(a.id)));
   read(T_TRAIN).forEach(r => {
     const d = normDate(r[0]); if (!d || !r[1]) return;
-    (train[r[1]] = train[r[1]] || {})[d] = { r: parseInt(r[2], 10) || 0, m: parseInt(r[3], 10) || 0, n: String(r[4] || '') };
+    (train[r[1]] = train[r[1]] || {})[d] = { r: parseInt(r[2], 10) || 0, s: parseInt(r[5], 10) || 0, n: String(r[4] || '') };
   });
   read(T_ATT).forEach(r => {
     const d = normDate(r[0]); const v = String(r[2]).trim().toLowerCase(); if (!d || !r[1] || !/^[pf]$/.test(v)) return;
@@ -332,10 +332,17 @@ function saveTrain(token, date, val) {
   checkDate(date);
   let row = null;
   if (val) {
-    const r = Math.max(0, Math.min(10, parseInt(val.r, 10) || 0)), m = Math.max(0, Math.min(300, parseInt(val.m, 10) || 0));
-    row = [date, s.user, String(r), String(m), clean(val.n, 1000)];
+    const r = Math.max(0, Math.min(5, parseInt(val.r, 10) || 0)), f = Math.max(0, Math.min(5, parseInt(val.s, 10) || 0));
+    row = [date, s.user, String(r), '', clean(val.n, 1000), String(f)];
   }
-  withLock(() => upsert(dataSS().getSheetByName(T_TRAIN), [[date, s.user, row]]));
+  withLock(() => {
+    const sh = dataSS().getSheetByName(T_TRAIN);
+    if (sh.getRange(1, 3).getValue() !== 'Dureza (1-5, 0 = no asistió)') {
+      sh.getRange(1, 3, 1, 4).setValues([['Dureza (1-5, 0 = no asistió)', '(sin uso)', 'Comentario', 'Sensaciones (1 = muy malas, 5 = muy buenas)']]).setFontWeight('bold').setBackground('#e3f0f7');
+      sh.getRange('F:F').setNumberFormat('@');
+    }
+    upsert(sh, [[date, s.user, row]]);
+  });
   return { days: store().train[s.user] || {} };
 }
 
