@@ -88,6 +88,14 @@ td.r,th.r{text-align:right}
 .tl .it{position:relative}
 .tl .it::before{content:"";position:absolute;left:-22px;top:6px;width:11px;height:11px;border-radius:50%;background:var(--accent)}
 .tl .it.past::before{background:var(--mute)}
+.cd{display:flex;gap:14px;align-items:center;background:linear-gradient(135deg,var(--accent),#0b4f7a);color:#fff;border:0}
+.cd .num{font:700 44px/1 "Barlow Condensed",Arial Narrow,sans-serif;text-align:center;min-width:70px}.cd .num small{display:block;font-size:14px;font-weight:600;opacity:.9}
+.cd b{font-size:17px}.cd .mute{color:#e3f0f7}
+.dleft{font-size:12px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:1px 8px;margin-left:4px;white-space:nowrap}
+.wk table{width:100%;font-size:15px}.wk td,.wk th{padding:8px 4px}.wk td,.wk th{text-align:center}.wk td:first-child,.wk th:first-child{text-align:left}
+.alist{display:flex;flex-direction:column;gap:6px}.alist button{display:flex;justify-content:space-between;gap:8px;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink)}
+.alist button span:last-child{color:var(--mute);font-size:14px;white-space:nowrap}
+.dots{display:inline-flex;gap:3px;vertical-align:middle}.dots i{width:12px;height:12px;border-radius:50%;display:inline-block}
 .tl .it.rel{background:var(--soft);border-radius:8px;padding:8px 10px}
 .tl .it.past{background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:8px 10px;color:var(--mute)}
 .tl .it.past b{color:var(--mute);font-weight:600}
@@ -341,8 +349,33 @@ function vHome(a){
  const coach=S.user.role==='coach',q=quoteOfWeek(),sal=coach?null:salowis(a,ym(new Date()));
  $('#v').innerHTML=`<div class="stack"><div class="hello"><h2>¡Hola, ${coach?'Entrenador/a':esc(a.name.split(' ')[0])}!</h2></div>
  <div class="card quote"><blockquote>«${esc(q[0])}»</blockquote><div class="mute">— <b>${esc(q[1])}</b>, ${esc(q[2])} · Frase de la semana</div></div>
- <div class="menu">${sections(coach).filter(t=>t[0]!=='inicio').map(t=>`<button class="mbtn" data-go="${t[0]}"><span class="ic" aria-hidden="true">${t[2]}</span><span><b>${t[1]}</b><small>${t[0]==='ent'&&sal?`🪙 ${sal.got} salowis este mes`:t[3]}</small></span></button>`).join('')}</div></div>`;
- document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.go;render()})}
+ <div class="menu">${sections(coach).filter(t=>t[0]!=='inicio').map(t=>`<button class="mbtn" data-go="${t[0]}"><span class="ic" aria-hidden="true">${t[2]}</span><span><b>${t[1]}</b><small>${t[0]==='ent'&&sal?`🪙 ${sal.got} salowis este mes`:t[3]}</small></span></button>`).join('')}</div>${coach?'<div id="wk"></div>':''}</div>`;
+ document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.go;render()});if(coach)weekCard()}
+/* Resumen semanal del entrenador: asistencia y valoraciones por grupo, pendientes y alertas de sensaciones */
+function weekDays(off){const t=new Date(TODAY+'T12:00:00');t.setDate(t.getDate()-((t.getDay()+6)%7)+7*off);return Array.from({length:7},(_,i)=>{const d=new Date(t);d.setDate(t.getDate()+i);return iso(d)})}
+function weekCard(){
+ const off=S.wk||0,days=weekDays(off),past=days.filter(d=>d<=TODAY),avg=x=>x.length?(x.reduce((p,q)=>p+q,0)/x.length).toFixed(1).replace('.',','):'—';
+ const rows=[],pend=[],noList=[];
+ CATS.forEach(c=>{const ath=D.athletes.filter(a=>a.cat===c);if(!ath.length)return;const ids=new Set(ath.map(a=>a.id));
+  const tdays=past.filter(d=>isTrainDay(d,c)),listed=tdays.filter(d=>att[d]&&Object.keys(att[d]).some(k=>ids.has(k)));
+  tdays.filter(d=>!listed.includes(d)).forEach(d=>noList.push([c,d]));
+  let pres=0,slots=0,ok=0;const R=[],F=[];
+  listed.forEach(d=>ath.forEach(a=>{const v=att[d][a.id];if(v){slots++;if(v==='p'){pres++;if(validLog(trainDays(a.id)[d]))ok++}}}));
+  ath.forEach(a=>{const t=trainDays(a.id);tdays.forEach(d=>{const v=t[d];if(v&&v.r>0){R.push(v.r);if(v.s>0)F.push(v.s)}});
+   const miss=listed.filter(d=>att[d][a.id]==='p'&&!validLog(t[d]));if(miss.length)pend.push([a,miss])});
+  rows.push(`<tr><td><b>${CATN[c]}</b></td><td>${listed.length}/${tdays.length}</td><td>${slots?Math.round(100*pres/slots)+' %':'—'}</td><td>${pres?ok+'/'+pres:'—'}</td><td>${avg(R)}</td><td>${avg(F)}</td></tr>`)});
+ const alerts=D.athletes.map(a=>{const L=Object.entries(trainDays(a.id)).filter(([d,v])=>d<=days[6]&&v&&v.r>0&&v.s>0).sort((x,y)=>y[0].localeCompare(x[0])).slice(0,3);
+  let k=0;while(k<L.length&&L[k][1].s<=2)k++;return k>=2?[a,L.slice(0,k)]:null}).filter(Boolean);
+ const go=a=>`data-ath="${esc(a.id)}"`;
+ const title=off===0?'Esta semana':off===-1?'Semana pasada':'Semana del '+fd(days[0]);
+ $('#wk').innerHTML=`<div class="card wk stack"><div class="row"><button class="btn ghost" id="wp" aria-label="Semana anterior">‹</button><div class="sp" style="text-align:center"><h3>📋 Resumen · ${title}</h3><div class="mute">${fd(days[0])} – ${fd(days[6])}</div></div><button class="btn ghost" id="wn" aria-label="Semana siguiente" ${off>=0?'disabled':''}>›</button></div>
+  <div class="tw"><table><thead><tr><th>Grupo</th><th>Listas</th><th>Asist.</th><th>Valor.</th><th>Dureza</th><th>Sens.</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
+  <p class="mute" style="margin:0">Listas: entrenos con lista pasada / entrenos hasta hoy. Asist.: porcentaje de asistencia. Valor.: asistencias con la valoración completa del nadador. Dureza y Sens. (sensaciones): media de 1 a 5.</p>
+  ${noList.length?`<div class="note">⚠️ Falta pasar lista: ${CATS.filter(c=>noList.some(x=>x[0]===c)).map(c=>`<b>${CATN[c]}</b> ${noList.filter(x=>x[0]===c).map(x=>fd(x[1]).slice(0,5)).join(', ')}`).join(' · ')}</div>`:''}
+  <div><h3>🔴 Sensaciones malas seguidas</h3>${alerts.length?`<div class="alist">${alerts.map(([a,L])=>`<button ${go(a)}><span><b>${esc(a.name)}</b> <span class="mute">${CATN[a.cat]}</span></span><span><span class="dots">${L.map(([,v])=>`<i style="background:${FEEL[v.s][0]}"></i>`).join('')}</span> ${L.length} últimos entrenos</span></button>`).join('')}</div>`:'<p class="mute">Nadie ha marcado malas sensaciones en sus últimos entrenos.</p>'}</div>
+  <div><h3>✍️ Sin valorar (${pend.length})</h3>${pend.length?`<div class="alist">${pend.sort((x,y)=>y[1].length-x[1].length).map(([a,m])=>`<button ${go(a)}><span><b>${esc(a.name)}</b> <span class="mute">${CATN[a.cat]}</span></span><span>${m.length} ${m.length===1?'entreno':'entrenos'}: ${m.map(d=>fd(d).slice(0,5)).join(', ')}</span></button>`).join('')}</div>`:'<p class="mute">Todos los que asistieron han valorado sus entrenos. 👏</p>'}</div></div>`;
+ $('#wp').onclick=()=>{S.wk=off-1;weekCard()};$('#wn').onclick=()=>{if(off<0){S.wk=off+1;weekCard()}};
+ document.querySelectorAll('#wk [data-ath]').forEach(b=>b.onclick=()=>{S.tab='datos';S.aid=b.dataset.ath;S.sub='ent';S.month=null;S.day=null;render()})}
 /* Asistencia del nadador: Salowis y días con lista */
 function vAsisMe(a){
  if(!S.amonth)S.amonth=ym(new Date());const mk=S.amonth,[y,m]=mk.split('-').map(Number),all=attDays(mk),n=new Date(y,m,0).getDate(),off=(new Date(y,m-1,1).getDay()+6)%7;
@@ -366,6 +399,8 @@ const mInfo=(m,se)=>se==='ver'?m.v:(m.min?{min:m.min,ms:m.ms,pct:m.pct,ok:m.ok,g
 function stat2(x){if(!x)return['na','Sin mínima'];if(x.ok)return['ok','Conseguida'];return x.pct<=2?['near','Casi ('+x.pct.toFixed(1).replace('.',',')+'%)']:['far','+'+x.pct.toFixed(1).replace('.',',')+'%']}
 function best(a){return a.marks.map(m=>({...m,c:m.s+corr(m)})).sort((x,y)=>evSort(x.ev,y.ev)||x.pool-y.pool)}
 function stat(m){if(m.ok===undefined)return['na','Sin mínima'];if(m.ok)return['ok','Conseguida'];return m.pct<=2?['near','Casi ('+m.pct.toFixed(1).replace('.',',')+'%)']:['far','+'+m.pct.toFixed(1).replace('.',',')+'%']}
+const daysTo=d=>Math.round((new Date(d+'T12:00:00')-new Date(TODAY+'T12:00:00'))/864e5);
+const leftTxt=n=>n<=0?'Hoy':n===1?'Mañana':'En '+n+' días';
 function nextComps(a){return D.comps.filter(c=>c.start&&c.end>=TODAY&&relevant(c,a)).sort((x,y)=>x.start.localeCompare(y.start))}
 function relevant(c,a){const k=String(c.cat||'').toLowerCase(),y=String(a.year);if(a.cat==='master')return /absolut|m[aà]ster|abierto|open/.test(k);if(a.cat==='junior')return /j[uú]nior|absolut/.test(k)||k.includes(y);if(a.cat==='infantil')return /infantil/.test(k)||k.includes(y);return /alev/.test(k)||k.includes(y)}
 function attMonth(a){const days=trainDays(a.id),now=new Date(),mk=ym(now),n=new Date(now.getFullYear(),now.getMonth()+1,0).getDate(),off=(new Date(now.getFullYear(),now.getMonth(),1).getDay()+6)%7;let s=0,t=0;for(let d=1;d<=n;d++){const k=mk+'-'+String(d).padStart(2,'0');if(((off+d-1)%7)<4&&k<=TODAY){s++;if(days[k]&&days[k].r>0)t++}}return s?Math.round(t/s*100)+'%':'—'}
@@ -403,8 +438,10 @@ function vMin(a){
 function vCal(a){
  const list=D.comps.filter(c=>c.start).sort((x,y)=>x.start.localeCompare(y.start));
  const lig=D.ligas.filter(l=>a.cat==='alevin'?/Alev/.test(l.cat):a.cat==='infantil'?/Infantil/.test(l.cat):false);
- $('#v').innerHTML=`<div class="card"><h2>Calendario general</h2><p class="mute">Resaltadas, las competiciones de tu categoría. En gris, las que ya han pasado.</p><div class="lgd"><span><i style="background:var(--soft);border:1px solid var(--accent)"></i>Tu categoría</span><span><i style="background:var(--bg);border:1px dashed var(--mute)"></i>Ya pasada</span></div><div class="tl">
- ${list.map(c=>`${(()=>{const p=(c.end||c.start)<TODAY;return `<div class="it ${p?'past':relevant(c,a)?'rel':''}"><b>${esc(c.name)}</b>${p?' <span class="fin">Finalizada</span>':''}`})()} <span class="pill na">${esc(c.norm||'Club')}</span><br><span>${c.end&&c.end!==c.start?fd(c.start)+' – '+fd(c.end):fd(c.start)}${c.day?' · '+esc(c.day):''}${c.time?' · '+esc(c.time):''}</span> · <span class="mute">${esc(c.venue||'')} ${c.pool?'· '+esc(c.pool):''}</span><br><span class="mute">${esc(c.cat)}</span>${c.iopen?`<br><span class="mute">Inscripción ${fd(c.iopen)} – ${fd(c.iclose)}${c.prov?' · provisional '+fd(c.prov):''}${c.defi?' · definitivo '+fd(c.defi):''}</span>`:''}</div>`).join('')}</div></div>
+ const nx=nextComps(a)[0],me=S.user.role==='athlete';let cd='';
+  if(nx){const n=daysTo(nx.start),on=n<=0;cd=`<div class="card cd" style="margin-bottom:12px"><div class="num">${on?'¡Hoy!':n}${on?'':`<small>${n===1?'día':'días'}</small>`}</div><div><div class="mute">${on?(me?'Estás compitiendo':'Compite hoy'):(me?'Faltan para tu próxima competición':'Faltan para su próxima competición')}</div><b>${esc(nx.name)}</b><div class="mute">${nx.end&&nx.end!==nx.start?fd(nx.start)+' – '+fd(nx.end):fd(nx.start)}${nx.venue?' · '+esc(nx.venue):''}${nx.pool?' · '+esc(nx.pool):''}</div>${nx.iclose&&nx.iclose>=TODAY?`<div style="margin-top:4px;font-weight:600">⏳ La inscripción cierra ${daysTo(nx.iclose)<=0?'hoy':daysTo(nx.iclose)===1?'mañana':'en '+daysTo(nx.iclose)+' días'} (${fd(nx.iclose)})</div>`:''}</div></div>`}
+  $('#v').innerHTML=cd+`<div class="card"><h2>Calendario general</h2><p class="mute">Resaltadas, las competiciones de tu categoría. En gris, las que ya han pasado.</p><div class="lgd"><span><i style="background:var(--soft);border:1px solid var(--accent)"></i>Tu categoría</span><span><i style="background:var(--bg);border:1px dashed var(--mute)"></i>Ya pasada</span></div><div class="tl">
+ ${list.map(c=>`${(()=>{const p=(c.end||c.start)<TODAY;return `<div class="it ${p?'past':relevant(c,a)?'rel':''}"><b>${esc(c.name)}</b>${p?' <span class="fin">Finalizada</span>':c.start>=TODAY?` <span class="dleft">${leftTxt(daysTo(c.start))}</span>`:' <span class="dleft">En curso</span>'}`})()} <span class="pill na">${esc(c.norm||'Club')}</span><br><span>${c.end&&c.end!==c.start?fd(c.start)+' – '+fd(c.end):fd(c.start)}${c.day?' · '+esc(c.day):''}${c.time?' · '+esc(c.time):''}</span> · <span class="mute">${esc(c.venue||'')} ${c.pool?'· '+esc(c.pool):''}</span><br><span class="mute">${esc(c.cat)}</span>${c.iopen?`<br><span class="mute">Inscripción ${fd(c.iopen)} – ${fd(c.iclose)}${c.prov?' · provisional '+fd(c.prov):''}${c.defi?' · definitivo '+fd(c.defi):''}</span>`:''}</div>`).join('')}</div></div>
  ${lig.length?`<div class="card" style="margin-top:12px"><h3>${esc(lig[0].name)}</h3><div class="tw"><table><thead><tr><th>Jornada</th><th>Del</th><th>Al</th><th>Entrega de tiempos</th><th>Publicación</th></tr></thead><tbody>${lig.map(l=>`<tr class="${(l.end||l.start)<TODAY?'past':''}"><td>${esc(l.j)}</td><td>${fd(l.start)}</td><td>${fd(l.end)}</td><td>${fd(l.deadline)}</td><td>${fd(l.pub)}</td></tr>`).join('')}</tbody></table></div></div>`:''}`}
 function vNorm(a){
  const seen={};D.comps.forEach(c=>{if(c.norm&&!seen[c.norm])seen[c.norm]=c});
