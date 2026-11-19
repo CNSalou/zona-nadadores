@@ -509,7 +509,9 @@ function vVal(a){
 </script>
 <script>
 /* modo app: funciona sin cobertura para abrir y muestra cómo instalarla */
-if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')r.update()})}).catch(()=>{}));
+/* si se instala una versión nueva de la app mientras está abierta, recargar una vez para mostrarla */
+if('serviceWorker' in navigator){let rel=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(rel)return;rel=true;location.reload()})}
 (function(){
  const standalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone;
  if(standalone||LS.get('cnsalou_noinstall',false))return;
