@@ -93,6 +93,7 @@ td.r,th.r{text-align:right}
 .cd b{font-size:17px}.cd .mute{color:#e3f0f7}
 .dleft{font-size:12px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:1px 8px;margin-left:4px;white-space:nowrap}
 .wk table{width:100%;font-size:15px}.wk td,.wk th{padding:8px 4px}.wk td,.wk th{text-align:center}.wk td:first-child,.wk th:first-child{text-align:left}
+.alist div.nfi{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}.alist div.nfi.new{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,var(--card))}
 .alist a.nfi{display:flex;justify-content:space-between;gap:8px;text-decoration:none;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink)}.alist a.nfi.new{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 10%,var(--card))}.alist a.nfi>span:last-child{color:var(--accent);font-weight:700;white-space:nowrap}
 .alist{display:flex;flex-direction:column;gap:6px}.alist button{display:flex;justify-content:space-between;gap:8px;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink)}
 .alist button span:last-child{color:var(--mute);font-size:14px;white-space:nowrap}
@@ -233,6 +234,21 @@ async function loadFCN(){if(FCN.items||FCN.busy||FCN.err)return;FCN.busy=true;
 /* Último calendario publicado por la FCN y si es más nuevo que el que lleva la app */
 function fcnCal(){const it=(FCN.items||[]).filter(x=>/calendari/i.test(x.title)).sort((a,b)=>b.date.localeCompare(a.date))[0];
  const mine='2026-10-26';return it?{id:it.id,date:it.date,newer:it.date>mine||String(it.id)!=='22616'}:null}
+/* Avisos de plazos de inscripción para el entrenador: abre pronto (≤7 días), abierto y cerrado hace poco (≤7 días) */
+function inscCard(){const el=$('#ic');if(!el)return;
+ const L=D.comps.filter(c=>c.iopen&&c.iclose).map(c=>{const o=daysTo(c.iopen),cl=daysTo(c.iclose);
+  const st=o>0?(o<=7?'soon':null):cl>=0?'open':cl>=-7?'closed':null;return st?{c,st,o,cl}:null}).filter(Boolean)
+  .sort((a,b)=>({open:0,soon:1,closed:2}[a.st]-{open:0,soon:1,closed:2}[b.st])||a.c.iclose.localeCompare(b.c.iclose));
+ const when=n=>n===0?'hoy':n===1?'mañana':'en '+n+' días';
+ const line=x=>{const c=x.c;let ic,txt,cls='';
+  if(x.st==='open'){ic=x.cl<=2?'🔴':x.cl<=5?'🟠':'🟢';txt=`<b>Inscripción abierta</b> · cierra ${when(x.cl)} (${fd(c.iclose)})`;cls=x.cl<=2?' new':''}
+  else if(x.st==='soon'){ic='🔵';txt=`<b>Abre ${when(x.o)}</b> (${fd(c.iopen)}) · cierra el ${fd(c.iclose)}`}
+  else{ic='⚫';txt=`<b>Cerrada</b> el ${fd(c.iclose)}${c.prov&&c.prov>=TODAY?' · listado provisional el '+fd(c.prov):''}${c.defi&&c.defi>=TODAY?' · definitivo el '+fd(c.defi):''}`}
+  return `<div class="nfi${cls}" style="display:block"><b>${ic} ${esc(c.name)}</b>${c.norm?` <span class="pill na">${esc(c.norm)}</span>`:''}<br><span class="mute">${txt} · competición ${c.end&&c.end!==c.start?fd(c.start)+' – '+fd(c.end):fd(c.start)}</span></div>`};
+ const urgent=L.some(x=>x.st==='open'&&x.cl<=2);
+ el.innerHTML=`<div class="card stack" ${urgent?'style="border:2px solid var(--bad)"':''}><h3>🗓️ Plazos de inscripción</h3>
+  ${L.length?`<div class="alist">${L.map(line).join('')}</div>`:'<p class="mute" style="margin:0">Ningún plazo de inscripción abierto, a punto de abrir o recién cerrado.</p>'}
+  <p class="mute" style="margin:0">🟢 abierto · 🟠 cierra en 5 días o menos · 🔴 cierra en 2 días o menos · 🔵 abre en los próximos 7 días · ⚫ cerrado en los últimos 7 días. Fechas del Calendario normativas del Excel.</p></div>`}
 /* Avisos de normativas para el entrenador: novedades FCN de Natació (sección 2) y Màsters (sección 7) */
 const NF={items:null,err:false,busy:false};
 async function loadNormFeed(){if(NF.items||NF.busy||NF.err)return;NF.busy=true;
@@ -419,7 +435,7 @@ function vHome(a){
  const coach=S.user.role==='coach',q=quoteOfWeek(),sal=coach?null:salowis(a,ym(new Date()));
  $('#v').innerHTML=`<div class="stack"><div class="hello"><h2>¡Hola, ${coach?'Entrenador/a':esc(a.name.split(' ')[0])}!</h2></div>
  <div class="card quote"><blockquote>«${esc(q[0])}»</blockquote><div class="mute">— <b>${esc(q[1])}</b>, ${esc(q[2])} · Frase de la semana</div></div>
- <div class="menu">${sections(coach).filter(t=>t[0]!=='inicio').map(t=>`<button class="mbtn" data-go="${t[0]}"><span class="ic" aria-hidden="true">${t[2]}</span><span><b>${t[1]}</b><small>${t[0]==='ent'&&sal?`🐙 ${sal.got} pulpines este mes`:t[3]}</small></span></button>`).join('')}</div>${coach?'<div id="wk"></div>':''}</div>`;if(coach){$('.menu').insertAdjacentHTML('beforebegin','<div id="nf"></div>');normCard()}
+ <div class="menu">${sections(coach).filter(t=>t[0]!=='inicio').map(t=>`<button class="mbtn" data-go="${t[0]}"><span class="ic" aria-hidden="true">${t[2]}</span><span><b>${t[1]}</b><small>${t[0]==='ent'&&sal?`🐙 ${sal.got} pulpines este mes`:t[3]}</small></span></button>`).join('')}</div>${coach?'<div id="wk"></div>':''}</div>`;if(coach){$('.menu').insertAdjacentHTML('beforebegin','<div id="ic"></div><div id="nf"></div>');inscCard();normCard()}
  document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.go;render()});if(coach)weekCard()}
 /* Resumen semanal del entrenador: asistencia y valoraciones por grupo, pendientes y alertas de sensaciones */
 function weekDays(off){const t=new Date(TODAY+'T12:00:00');t.setDate(t.getDate()-((t.getDay()+6)%7)+7*off);return Array.from({length:7},(_,i)=>{const d=new Date(t);d.setDate(t.getDate()+i);return iso(d)})}
