@@ -291,6 +291,7 @@ async function saveAtt(date,aids,val){
 
 /* ---------- render ---------- */
 function render(){
+ const vk=S.tab+'|'+(S.sub||'')+'|'+(S.aid||''),same=vk===S._view,y0=window.scrollY;S._view=vk;
  const a=athlete(S.aid),coach=S.user.role==='coach';
  const tabs=sections(coach);
  $('#app').innerHTML=`<header class="top"><div class="wrap"><img class="brand" src="${LOGO}" alt="Logo del C.N. Salou"><h1>${coach?'Panel del entrenador':esc(a.name)}</h1>
@@ -304,7 +305,7 @@ function render(){
  if(!coach&&S.tab==='asis')S.tab='ent';
  if(coach&&SUBS.some(t=>t[0]===S.tab)){S.sub=S.tab;S.tab='datos'}
  ({inicio:vHome,datos:vDatos,asis:vAsis,prog:vProg,resumen:vRes,marcas:vMar,minimas:vMin,cal:vCal,norm:vNorm,ent:vEnt,val:vVal})[S.tab](a);
- window.scrollTo(0,0);chatButton();
+ window.scrollTo(0,same?y0:0);chatButton();
 }
 /* Apartados: [id, nombre, icono, descripción] */
 /* Apartados del nadador (también los consulta el entrenador desde «Datos nadadores") */
@@ -499,9 +500,16 @@ function vAsis(){
  S.amsg='';
  $('#ap').onclick=()=>nx(-1);$('#an').onclick=()=>nx(1);$('#at').onclick=()=>{S.adate=TODAY;render()};
  $('#ad').onchange=e=>{if(e.target.value){S.adate=e.target.value;render()}};$('#ag').onchange=e=>{S.agrp=e.target.value;render()};
- const lock=()=>{document.querySelectorAll('#v .btn').forEach(b=>b.disabled=true);$('#as').textContent='Guardando…'};
- document.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{const cur=day[b.dataset.a];lock();S.amsg=await saveAtt(d,[b.dataset.a],cur===b.dataset.v?null:b.dataset.v);render()});
- $('#all').onclick=async()=>{const ids=grp.filter(a=>!day[a.id]).map(a=>a.id);if(!ids.length)return;lock();S.amsg=await saveAtt(d,ids,'p');render()}}
+ /* Se marca al momento en pantalla y se guarda por detrás; si falla, se deshace y avisa */
+ const st=()=>{const e=$('#as');if(e)e.textContent=ATTQ.n?`Guardando… (${ATTQ.n})`:(ATTQ.err||'Todo guardado ✓')};
+ const set=(ids,val)=>{const prev={};att[d]=Object.assign({},att[d]||{});ids.forEach(id=>{prev[id]=att[d][id];if(val===null)delete att[d][id];else att[d][id]=val});
+  ATTQ.n++;ATTQ.err='';render();st();
+  api('saveAtt',TOKEN,d,ids,val).catch(e=>{att[d]=Object.assign({},att[d]||{});ids.forEach(id=>{if(prev[id]===undefined)delete att[d][id];else att[d][id]=prev[id]});ATTQ.err='⚠️ No se ha guardado: '+e.message+'. Vuelve a marcarlo.';if(S.tab==='asis')render()})
+   .finally(()=>{ATTQ.n--;st()})};
+ st();
+ document.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{const cur=day[b.dataset.a];set([b.dataset.a],cur===b.dataset.v?null:b.dataset.v)});
+ $('#all').onclick=()=>{const ids=grp.filter(a=>!day[a.id]).map(a=>a.id);if(ids.length)set(ids,'p')}}
+const ATTQ={n:0,err:''};
 
 /* ---------- valoraciones ---------- */
 function vVal(a){
