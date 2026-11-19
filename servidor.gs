@@ -266,16 +266,19 @@ function computeData() {
   const ss = SpreadsheetApp.openById(CFG.MARCAS_ID);
   const rowsOf = name => { const sh = ss.getSheetByName(name); return sh ? sh.getDataRange().getDisplayValues() : []; };
 
-  const mins = {}, mintab = { junior: [], infantil: [] };
-  [['junior', 'Mínimas Catalunya Junior'], ['infantil', 'Mínimas Catalunya Infantil']].forEach(([cat, sh]) => {
+  // Mínimas: invierno (CC d'Hivern) y verano (CC d'Estiu). Clave temporada|categoría|sexo|año|prueba|piscina
+  const mins = {}, mintab = { junior: [], infantil: [], junior_v: [], infantil_v: [] };
+  [['inv', 'junior', 'Mínimas Catalunya Junior'], ['inv', 'infantil', 'Mínimas Catalunya Infantil'],
+   ['ver', 'junior', 'Mínimas Junior Verano'], ['ver', 'infantil', 'Mínimas Infantil Verano']].forEach(([se, cat, sh]) => {
     rowsOf(sh).slice(1).forEach(r => {
       const t = tsec(r[5]);
       if (!r[0] || t === null) return;
       const sex = r[1].trim().toUpperCase(), yr = parseInt(r[2], 10), ev = r[3].trim().toUpperCase(), pool = parseInt(r[4], 10);
-      mins[[cat, sex, yr, ev, pool].join('|')] = t;
-      mintab[cat].push([sex, yr, ev, pool, fmt(t), r[6] || null]);
+      mins[[se, cat, sex, yr, ev, pool].join('|')] = t;
+      mintab[se === 'inv' ? cat : cat + '_v'].push([sex, yr, ev, pool, fmt(t), r[6] || null]);
     });
   });
+  const minInfo = (mn, ct) => ({ min: fmt(mn), ms: mn, pct: round2((ct - mn) / mn * 100), ok: ct <= mn + 1e-9, gap: round2(ct - mn) });
 
   const athletes = {};
   const load = (sheet, cat, hasMin) => {
@@ -291,11 +294,10 @@ function computeData() {
       const b = BASE[sex + '|' + pool + '|' + ev];
       if (b) m.pts = Math.floor(1000 * Math.pow(b / ct, 3) + 1e-9);
       if (hasMin) {
-        const mn = mins[[cat, sex, yr, ev, pool].join('|')];
-        if (mn) {
-          m.min = fmt(mn); m.ms = mn;
-          m.pct = round2((ct - mn) / mn * 100); m.ok = ct <= mn + 1e-9; m.gap = round2(ct - mn);
-        }
+        const mn = mins[['inv', cat, sex, yr, ev, pool].join('|')];
+        if (mn) Object.assign(m, minInfo(mn, ct));                 // invierno: campos min, ms, pct, ok, gap
+        const mv = mins[['ver', cat, sex, yr, ev, pool].join('|')];
+        if (mv) m.v = minInfo(mv, ct);                              // verano: en m.v
       }
       a.marks.push(m);
     });
@@ -303,8 +305,9 @@ function computeData() {
   load('Junior - Marcas y mínimas', 'junior', true);
   load('Infantil - Marcas y mínimas', 'infantil', true);
   load('Alevín - Marcas', 'alevin', false);
+  load('Máster - Marcas', 'master', false);
 
-  const order = { junior: 0, infantil: 1, alevin: 2 };
+  const order = { junior: 0, infantil: 1, alevin: 2, master: 3 };
   const list = Object.keys(athletes).map(k => athletes[k])
     .sort((a, b) => order[a.cat] - order[b.cat] || a.name.localeCompare(b.name, 'es'));
   list.forEach(a => a.marks.sort((x, y) => (x.date || '').localeCompare(y.date || '')));
@@ -319,6 +322,12 @@ function computeData() {
   for (let i = 20; i <= 31 && i < cal.length; i++) {
     const r = cal[i]; if (!r[0]) continue;
     ligas.push({ name: r[0], norm: r[1], cat: r[2], j: r[3], start: dstr(r[5]), end: dstr(r[6]), deadline: dstr(r[10]), pub: dstr(r[11]), notes: r[13] || null });
+  }
+  // Bloque C: competiciones del calendario del club (filas 35-60)
+  for (let i = 34; i < cal.length && i < 60; i++) {
+    const r = cal[i]; if (!r[0] || !dstr(r[5])) continue;
+    comps.push({ name: r[0], norm: '', origin: r[1] || 'Club', cat: r[2], venue: r[3], pool: r[4], start: dstr(r[5]), end: dstr(r[6]) || dstr(r[5]),
+      day: r[7] || null, time: r[8] || null, notes: r[13] || null });
   }
   return { athletes: list, mintab: mintab, comps: comps, ligas: ligas, built: Utilities.formatDate(new Date(), CFG.ZONA, 'dd/MM/yyyy HH:mm') };
 }
