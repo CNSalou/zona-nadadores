@@ -223,10 +223,10 @@ const FCN_FEED='https://esb.optimalwayconsulting.com/fcnat/1/Se6zwx4E4nd8facPWIa
 const FCN={items:null,err:false,busy:false};
 const fcnFile=id=>'https://www.natacio.cat/wp-json/files/ow-getFile?file='+id;
 async function loadFCN(){if(FCN.items||FCN.busy||FCN.err)return;FCN.busy=true;
- try{let c=null;try{c=JSON.parse(localStorage.getItem('cnsalou_fcn')||'null')}catch(e){}
+ try{let c=null;try{c=JSON.parse(localStorage.getItem('cnsalou_fcn2')||'null')}catch(e){}
   if(c&&Date.now()-c.t<6*36e5)FCN.items=c.items;else{const t=await fetch(FCN_FEED,{cache:'no-store'}).then(r=>r.text());
-   const j=JSON.parse(decodeURIComponent(escape(atob(t.trim()))));FCN.items=(j.messageData||[]).map(x=>({id:x.docId,title:String(x.title||'').trim(),date:String(x.datePublished||'').slice(0,10)}));
-   try{localStorage.setItem('cnsalou_fcn',JSON.stringify({t:Date.now(),items:FCN.items}))}catch(e){}}}
+   const j=JSON.parse(decodeURIComponent(escape(atob(t.trim()))));FCN.items=(j.messageData||[]).filter(x=>x.docId&&String(x.datePublished||'')>='2026-08-01'&&/normativa|calendari|reglament/i.test(x.title||'')).map(x=>({id:x.docId,title:String(x.title||'').trim(),date:String(x.datePublished||'').slice(0,10)}));
+   try{localStorage.setItem('cnsalou_fcn2',JSON.stringify({t:Date.now(),items:FCN.items}))}catch(e){}}}
  catch(e){FCN.err=true}
  FCN.busy=false;if(['cal','norm'].includes(S.tab)||['cal','norm'].includes(S.sub))render()}
 /* Último calendario publicado por la FCN y si es más nuevo que el que lleva la app */
