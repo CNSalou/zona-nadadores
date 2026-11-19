@@ -146,6 +146,21 @@ a{color:var(--accent)}
 .subs{display:flex;gap:6px;flex-wrap:wrap}
 .sub{background:var(--card);border:1px solid var(--line);border-radius:99px;padding:8px 14px;font-weight:600;color:var(--ink)}
 .sub[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.arow{border-top:1px solid var(--line);padding:10px 0 2px;display:grid;gap:8px}
+.abtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}.abtns .btn{width:100%}
+/* chat */
+.chatfab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:8;background:var(--accent);color:var(--accent-ink);border:0;border-radius:99px;padding:12px 18px;font-weight:700;box-shadow:0 6px 20px #0004}
+@media (max-width:520px){.chatfab span{display:none}.chatfab{font-size:22px;padding:12px 15px}}
+.chatp{position:fixed;right:16px;bottom:16px;width:min(420px,calc(100vw - 32px));height:min(620px,calc(100vh - 32px));z-index:10;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 40px #0005;display:flex;flex-direction:column;overflow:hidden}
+@media (max-width:520px){.chatp{inset:0;width:auto;height:auto;border-radius:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}}
+.chath{display:flex;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}.chath .btn{padding:6px 10px}
+.chatb{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:88%;padding:9px 12px;border-radius:14px;line-height:1.45;font-size:15px;overflow-wrap:anywhere}
+.msg.user{align-self:flex-end;background:var(--accent);color:var(--accent-ink);border-bottom-right-radius:4px}
+.msg.assistant{align-self:flex-start;background:var(--soft);border-bottom-left-radius:4px}
+.chips{display:flex;flex-direction:column;gap:6px}.chip{text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:8px 10px;color:var(--ink);font-size:14px}
+.chatf{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}.chatf textarea{min-height:42px;max-height:120px;resize:none}
+.chatn{font-size:11px;padding:0 12px 8px}
 /* app instalada: respetar la muesca del iPhone */
 body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
 .install{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:0 6px 24px #0003;display:flex;gap:10px;align-items:center;z-index:9}
@@ -257,7 +272,7 @@ async function loadAll(){busy('Cargando tus datos…');
  try{const r=await api('getData',TOKEN);if(r.error){logout(r.error);return}
   D=r;D.rank=r.rank||null;evals=r.evals||{};train=r.train||{};att=r.att||{};start(r)}
  catch(e){if(!/SESION/.test(e.message))loginView('No se han podido cargar los datos: '+e.message)}}
-function logout(msg){TOKEN=null;LS.set('cnsalou_t',null);S={user:null,tab:'inicio',aid:null,month:null,day:null};PG.g=null;PG.msg='';loginView(msg)}
+function logout(msg){CHAT.open=false;CHAT.msgs=[];chatRender();TOKEN=null;LS.set('cnsalou_t',null);S={user:null,tab:'inicio',aid:null,month:null,day:null};PG.g=null;PG.msg='';loginView(msg)}
 function start(r){const keep=S.user&&S.user.user===r.user;S.user={role:r.role,user:r.user,name:r.name};
  if(r.role==='athlete')S.aid=r.athletes[0].id;else if(!keep||!athlete(S.aid))S.aid=null;
  if(!keep)S.tab='inicio';render()}
@@ -289,7 +304,7 @@ function render(){
  if(!coach&&S.tab==='asis')S.tab='ent';
  if(coach&&SUBS.some(t=>t[0]===S.tab)){S.sub=S.tab;S.tab='datos'}
  ({inicio:vHome,datos:vDatos,asis:vAsis,prog:vProg,resumen:vRes,marcas:vMar,minimas:vMin,cal:vCal,norm:vNorm,ent:vEnt,val:vVal})[S.tab](a);
- window.scrollTo(0,0);
+ window.scrollTo(0,0);chatButton();
 }
 /* Apartados: [id, nombre, icono, descripción] */
 /* Apartados del nadador (también los consulta el entrenador desde «Datos nadadores") */
@@ -474,7 +489,7 @@ function vAsis(){
  <div class="row"><button class="btn ghost" id="ap" aria-label="Día anterior">‹</button><label for="ad" class="row" style="flex-direction:row">Día<input id="ad" type="date" value="${d}" style="width:auto"></label><button class="btn ghost" id="an" aria-label="Día siguiente">›</button><button class="btn ghost" id="at">Hoy</button><span class="sp"></span>
  <label for="ag" class="row" style="flex-direction:row">Grupo<select id="ag" style="width:auto">${[['junior','Junior'],['infantil','Infantil'],['alevin','Alevín']].map(g=>`<option value="${g[0]}" ${S.agrp===g[0]?'selected':''}>${g[1]}</option>`).join('')}</select></label></div>
  <div class="row"><b>${dn} ${fd(d)}</b>${sch?'':'<span class="pill near">No es día de entrenamiento</span>'}<span class="mute">${cnt.p} han asistido · ${cnt.f} no han asistido · ${grp.length-cnt.p-cnt.f} sin marcar</span><span class="sp"></span><button class="btn ghost" id="all">Marcar que han asistido todos</button></div>
- ${grp.map(a=>`<div class="row" style="border-top:1px solid var(--line);padding-top:8px"><span class="sp" style="min-width:160px"><b>${esc(a.name)}</b><br><span class="mute" style="font-size:13px">Su registro: </span>${logBadge(a.id,d)}</span>${[['p','Asistió'],['f','No asistió']].map(o=>`<button class="btn ghost" data-a="${esc(a.id)}" data-v="${o[0]}" aria-pressed="${day[a.id]===o[0]}" style="${day[a.id]===o[0]?'background:var(--'+(o[0]==='p'?'good':'bad')+');color:#06202f;border-color:transparent':''}">${o[1]}</button>`).join('')}</div>`).join('')}
+ ${grp.map(a=>`<div class="arow"><div><b>${esc(a.name)}</b> <span class="mute" style="font-size:13px">· Su registro: </span>${logBadge(a.id,d)}</div><div class="abtns">${[['p','Asistió'],['f','No asistió']].map(o=>`<button class="btn ghost" data-a="${esc(a.id)}" data-v="${o[0]}" aria-pressed="${day[a.id]===o[0]}" style="${day[a.id]===o[0]?'background:var(--'+(o[0]==='p'?'good':'bad')+');color:#06202f;border-color:transparent':''}">${o[1]}</button>`).join('')}</div></div>`).join('')}
  <div class="mute" id="as" role="status">${esc(S.amsg||'')}</div></div>
  <div class="card"><h3>Salowis de ${MESES[+mk.slice(5)-1]} (${S.agrp==='alevin'?'Alevín':S.agrp[0].toUpperCase()+S.agrp.slice(1)})</h3><p class="mute">${takenG.length} entrenamientos con lista. Salowi = «Asistió» en vuestra lista + entreno valorado por el nadador (dureza, sensaciones y comentario). La posición es en todo el equipo. 🏆 = va en cabeza.</p>
  <div class="tw"><table><thead><tr><th>Nadador</th><th class="r">Asistió (lista)</th><th class="r">Valorados por él/ella</th><th class="r">Salowis</th><th class="r">Posición</th><th class="r">Asistencia</th></tr></thead><tbody>${rows.map(r=>{const p=pos(r);return `<tr><td>${esc(r.a.name)}${topS&&r.sal===topS?' 🏆':''}</td><td class="r">${r.c.p}</td><td class="r">${r.log}${r.log!==r.c.p?' <span class="pill near" title="No coincide con la lista">≠</span>':''}</td><td class="r"><span class="coin-s" style="display:inline-block">${COIN}</span><b>${r.sal}</b></td><td class="r">${p&&r.sal?p.pos+'.ª'+(p.tie?' (empate)':''):'—'}</td><td class="r"><b class="${r.pct===null?'na':r.pct>=85?'ok':r.pct>=70?'near':'far'}">${r.pct===null?'—':r.pct+'%'}</b></td></tr>`}).join('')}</tbody></table></div></div>
@@ -503,6 +518,33 @@ function vVal(a){
   try{await saveEval(a.id,{comp:$('#ec').value.trim(),date:$('#ed2').value,general:$('#eg').value.trim(),pos:$('#ep').value.trim(),mej:$('#em').value.trim()});S.emsg='Guardada.';render()}
   catch(x){$('#es').textContent='No se ha podido guardar: '+x.message;$('#eb').disabled=false}};
   document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{b.disabled=true;b.textContent='Borrando…';try{await delEval(a.id,b.dataset.del)}catch(x){b.textContent='Error';}})}}
+
+/* ---------- chat con Claude ---------- */
+const CHAT={open:false,msgs:[],busy:false};
+const CHAT_SUG={coach:['¿Cuál es la mejor marca de Carla Cuesta en 100 libre?','¿Quién va primero en Salowis este mes?','¿Qué nadadores infantiles están a menos del 2 % de una mínima?','¿Cuándo cierra la inscripción del Campionat de Catalunya Júnior d\'Hivern?'],
+ athlete:['¿Cuál es mi mejor marca en 100 libre?','¿Qué mínimas tengo más cerca?','¿Cuándo es mi próximo campeonato y cuándo cierra la inscripción?','¿Qué pruebas puedo nadar en el Campionat de Catalunya de mi categoría?']};
+function md(t){return esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/(https:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/^[-•] /gm,'• ').replace(/\n/g,'<br>')}
+function chatButton(){let b=$('#chatfab');if(!b){b=document.createElement('button');b.id='chatfab';b.className='chatfab';b.innerHTML='💬 <span>Pregunta a Claude</span>';b.onclick=()=>{CHAT.open=true;chatRender()};document.body.appendChild(b)}b.hidden=!S.user||CHAT.open||!(D&&D.chat)}
+function chatRender(){
+ chatButton();let p=$('#chatp');if(!CHAT.open){if(p)p.remove();return}
+ if(!p){p=document.createElement('div');p.id='chatp';p.className='chatp';p.setAttribute('role','dialog');p.setAttribute('aria-label','Chat con Claude');document.body.appendChild(p)}
+ const coach=S.user.role==='coach',sug=CHAT_SUG[coach?'coach':'athlete'];
+ p.innerHTML=`<div class="chath"><b>💬 Pregunta a Claude</b><span class="sp"></span>${CHAT.msgs.length?'<button class="btn ghost" id="chnew" title="Empezar de nuevo">Nueva</button>':''}<button class="btn ghost" id="chx" aria-label="Cerrar chat">✕</button></div>
+ <div class="chatb" id="chb">${CHAT.msgs.length?'':`<p class="mute" style="margin:0 0 8px">${coach?'Pregunta lo que quieras sobre los datos de la app: marcas, mínimas, Salowis, entrenamientos, valoraciones, calendario o normativas.':'Pregúntame sobre tus marcas, tus mínimas, tus entrenos y Salowis, el calendario o las normativas de tus campeonatos.'}</p><div class="chips">${sug.map(s=>`<button class="chip" data-q="${esc(s)}">${esc(s)}</button>`).join('')}</div>`}
+  ${CHAT.msgs.map(m=>`<div class="msg ${m.role}">${m.role==='assistant'?md(m.content):esc(m.content)}${m.normas&&m.normas.length?`<div class="mute" style="font-size:12px;margin-top:6px">📄 Consultada: ${m.normas.map(esc).join(', ')}</div>`:''}</div>`).join('')}
+  ${CHAT.busy?'<div class="msg assistant mute">Pensando…</div>':''}</div>
+ <form class="chatf" id="chf"><textarea id="chq" rows="1" placeholder="Escribe tu pregunta…" ${CHAT.busy?'disabled':''}></textarea><button class="btn" ${CHAT.busy?'disabled':''}>Enviar</button></form>
+ <div class="mute chatn">Respuestas generadas por IA (Claude) con los datos de la app. Pueden contener errores: comprueba lo importante.</div>`;
+ const b=$('#chb');b.scrollTop=b.scrollHeight;
+ $('#chx').onclick=()=>{CHAT.open=false;chatRender()};
+ if($('#chnew'))$('#chnew').onclick=()=>{CHAT.msgs=[];chatRender()};
+ document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>chatSend(c.dataset.q));
+ const q=$('#chq');q.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('#chf').requestSubmit()}};
+ $('#chf').onsubmit=e=>{e.preventDefault();chatSend(q.value)};if(!CHAT.busy)q.focus()}
+async function chatSend(t){t=String(t||'').trim();if(!t||CHAT.busy)return;CHAT.msgs.push({role:'user',content:t});CHAT.busy=true;chatRender();
+ try{const r=await api('chat',TOKEN,CHAT.msgs.map(m=>({role:m.role,content:m.content})));CHAT.msgs.push(r.error?{role:'assistant',content:'⚠️ '+r.error,err:1}:{role:'assistant',content:r.text||'(sin respuesta)',normas:r.normas})}
+ catch(e){CHAT.msgs.push({role:'assistant',content:'⚠️ No se ha podido conectar: '+e.message,err:1})}
+ CHAT.msgs=CHAT.msgs.filter((m,i,a)=>!(m.err&&i<a.length-1));CHAT.busy=false;chatRender()}
 
 /* ---------- arranque ---------- */
 (function(){const t=LS.get('cnsalou_t',null);if(t){TOKEN=t;loadAll()}else loginView()})();
