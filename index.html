@@ -185,6 +185,38 @@ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bot
 <script src="config.js"></script>
 <script>
 const LOGO="logo.png";
+/* Calendario Máster (FCN, temporada 2026-27, PDF actualizado el 26/10/2026):
+   https://www.natacio.cat/calendaris-natacio-masters/  (archivo file=22616) */
+const MS_PAGE='https://www.natacio.cat/calendaris-natacio-masters/',MS_PDF='https://www.natacio.cat/wp-json/files/ow-getFile?file=22616',MS_UPD='26/10/2026';
+const MS_NORMS=[['MA G-01','Disposicions generals',22608],['MA NT-04','Circuit Català de Trofeus de natació màster',22610],['MA NT-05','Ct. de Catalunya de natació Open màster de fons',22611],['MA NT-07','Ct. de Catalunya de natació Open màster · Memorial M. Domènech',22613],['MA AO-08','Ct. de Catalunya de llarga distància Open màster',22614]];
+const MASTER_CAL=[
+ ["Campionat de Catalunya de Natació Màster d'Hivern",'2027-01-16','2027-01-17','25 m','Club Natació Manresa · C/ de Viladordis, 5, Manresa','Campionat'],
+ ['Campionat de Catalunya de Natació OPEN Màster de Llarga Distància','2027-05-01','2027-05-01','50 m','GEiEG · C/ de l’Esport, 16, Girona','Campionat',22614],
+ ['Campionat de Catalunya de Natació OPEN Màster de Fons','2027-05-02','2027-05-02','50 m','GEiEG · C/ de l’Esport, 16, Girona','Campionat',22611],
+ ["Campionat de Catalunya de Natació OPEN Màster d'Estiu",'2027-05-29','2027-05-30','50 m','CN L’Hospitalet · C/ de Rosalia de Castro, 39-43, L’Hospitalet de Llobregat','Campionat'],
+ ['Etapa 1 · XXX Màster CN Atlètic-Barceloneta','2026-10-17','','25 m','CN Atl. Barceloneta · Plaça del Mar, s/n, Barcelona'],
+ ['Etapa 2 · IX T-Swim Màster CN Tàrraco','2026-10-24','','25 m','CN Tàrraco · Pg. de Torroja, 86, Tarragona'],
+ ['Etapa 3 · I Trofeu Fons i Estils Màster Ciutat de Mataró','2026-11-08','','25 m','CN Mataró · Passeig Marítim, 92, Mataró'],
+ ['Etapa 4 · V Memorial Màster José Cuesta UE Horta','2026-11-14','','25 m','UE Horta · C/ de Feliu i Codina, 27, Barcelona'],
+ ['Etapa 5 · XXX Fons i Estils Màster CN Sabadell','2026-11-21','','25 m','CN Sabadell · C/ de Budapest, 1, Sabadell'],
+ ['Etapa 6 · Trofeu Ciutat de Granollers','2026-11-28','','25 m','CN Granollers · C/ Lluís Companys, 8, Granollers'],
+ ['Etapa 7 · XX Gran Premi Natació MS A. Marrugat CNSF','2026-12-12','','25 m','CN Sant Feliu · C/ Verge de Montserrat, 2, Sant Feliu de Llobregat'],
+ ['Etapa 8 · XXVIII Trofeu Màster Girona · VIII Memorial Pipe S. Babot','2026-12-19','','50 m','GEiEG · C/ de l’Esport, 16, Girona'],
+ ['Etapa 9 · XIII Trofeu Natació Màster CN Catalunya-Vila Gràcia','2027-02-14','','25 m','CN Catalunya · C/ Ana M.ª Matute Ausejo, 25, Barcelona'],
+ ['Etapa 10 · XVIX Trofeu Màster Ciutat del Prat','2027-02-20','','25 m','CN Prat · Pl. Mestre Ventura i Tort, 4, El Prat de Llobregat'],
+ ['Etapa 11 · XXVIII Trofeu Màsters CE INEF Lleida','2027-02-27','','25 m','CE INEF Lleida · Partida Caparrella, s/n, Lleida'],
+ ['Etapa 12 · XII Trofeu Màster CN Swimfaster Salt','2027-03-06','','25 m','CN Swimfaster Salt · Pg. dels Països Catalans, s/n, Salt'],
+ ['Etapa 13 · V Trofeu Màster CN St. Andreu','2027-03-13','2027-03-20','50 m','CN Sant Andreu · Rambla de Fabra i Puig, 47, Barcelona'],
+ ['Etapa 14 · V Trofeu Santa Eulàlia Open Màster Andorra','2027-03-13','','25 m','Fed. Andorrana · Av. de Joan Martí, Encamp (Andorra)'],
+ ['Etapa 15 · XII Trofeu Màster Ciutat Sant Adrià','2027-04-03','','25 m','CN Sant Adrià · C/ de Ricart, s/n, Sant Adrià de Besòs'],
+ ['Etapa 16 · Trofeu Ciutat d’Esplugues','2027-04-10','','25 m','CN Esplugues · Plaça Catalunya, s/n, Esplugues de Llobregat'],
+ ['Etapa 17 · Trofeu l’Escala Empúries','2027-04-11','','25 m','CN L’Escala Empúries · C/ Rusiñol, 4, L’Escala'],
+ ['Etapa 18 · V Trofeu Màster Ciutat de Cornellà','2027-04-17','','50 m','CN Cornellà · Ctra. de l’Hospitalet, s/n, Cornellà de Llobregat'],
+ ['Etapa 19 · VI Trofeu Sant Jordi natació Màster','2027-04-25','','50 m','CE Mediterrani · C/ de Begur, 44, Barcelona'],
+ ['Etapa 20 · XI Trofeu AquaMàsters','2027-05-08','','50 m','CN Sant Andreu · Rambla de Fabra i Puig, 47, Barcelona'],
+ ['Etapa 21 · VI Trofeu Ciutat de l’Hospitalet','','','50 m','CN L’Hospitalet · C/ de Rosalia de Castro, 39-43, L’Hospitalet de Llobregat'],
+ ['Etapa 22 · Panteresports 2027','2027-09-18','','50 m','Piscina Sant Jordi · C/ París, 114, Barcelona']
+].map(([name,start,end,pool,venue,kind,pdf])=>({ms:1,name,start,end:end||start,pool,venue,norm:'',cat:kind==='Campionat'?'Campionat de Catalunya Màster':'Circuit Català de Trofeus Màster',pdf:pdf||(kind?0:22610),day:start?['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][new Date(start+'T12:00:00').getDay()]:''}));
 const NORMS={N09:22519,N10:22520,N20:22530,N21:22531,N22:22532,N24:22534,N25:22535,N26:22536,N27:22795,N28:22796};
 const STY={L:0,E:1,B:2,M:3,S:4},STYN={L:'Libre',E:'Espalda',B:'Braza',M:'Mariposa',S:'Estilos'};
 const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -288,7 +320,7 @@ function loginView(msg){
 }
 async function loadAll(){busy('Cargando tus datos…');
  try{const r=await api('getData',TOKEN);if(r.error){logout(r.error);return}
-  D=r;D.rank=r.rank||null;evals=r.evals||{};train=r.train||{};att=r.att||{};start(r)}
+  D=r;D.comps=(r.comps||[]).filter(c=>!c.ms).concat(MASTER_CAL);D.rank=r.rank||null;evals=r.evals||{};train=r.train||{};att=r.att||{};start(r)}
  catch(e){if(!/SESION/.test(e.message))loginView('No se han podido cargar los datos: '+e.message)}}
 function logout(msg){CHAT.open=false;CHAT.msgs=[];chatRender();TOKEN=null;LS.set('cnsalou_t',null);S={user:null,tab:'inicio',aid:null,month:null,day:null};PG.g=null;PG.msg='';loginView(msg)}
 function start(r){const keep=S.user&&S.user.user===r.user;S.user={role:r.role,user:r.user,name:r.name};
@@ -402,7 +434,7 @@ function stat(m){if(m.ok===undefined)return['na','Sin mínima'];if(m.ok)return['
 const daysTo=d=>Math.round((new Date(d+'T12:00:00')-new Date(TODAY+'T12:00:00'))/864e5);
 const leftTxt=n=>n<=0?'Hoy':n===1?'Mañana':'En '+n+' días';
 function nextComps(a){return D.comps.filter(c=>c.start&&c.end>=TODAY&&relevant(c,a)).sort((x,y)=>x.start.localeCompare(y.start))}
-function relevant(c,a){const k=String(c.cat||'').toLowerCase(),y=String(a.year);if(a.cat==='master')return /absolut|m[aà]ster|abierto|open/.test(k);if(a.cat==='junior')return /j[uú]nior|absolut/.test(k)||k.includes(y);if(a.cat==='infantil')return /infantil/.test(k)||k.includes(y);return /alev/.test(k)||k.includes(y)}
+function relevant(c,a){const k=String(c.cat||'').toLowerCase(),y=String(a.year);if(a.cat==='master')return !!c.ms;if(c.ms)return false;if(a.cat==='junior')return /j[uú]nior|absolut/.test(k)||k.includes(y);if(a.cat==='infantil')return /infantil/.test(k)||k.includes(y);return /alev/.test(k)||k.includes(y)}
 function attMonth(a){const days=trainDays(a.id),now=new Date(),mk=ym(now),n=new Date(now.getFullYear(),now.getMonth()+1,0).getDate(),off=(new Date(now.getFullYear(),now.getMonth(),1).getDay()+6)%7;let s=0,t=0;for(let d=1;d<=n;d++){const k=mk+'-'+String(d).padStart(2,'0');if(((off+d-1)%7)<4&&k<=TODAY){s++;if(days[k]&&days[k].r>0)t++}}return s?Math.round(t/s*100)+'%':'—'}
 function vRes(a){
  const b=best(a);
@@ -436,14 +468,18 @@ function vMin(a){
  ${b.map(row).join('')}</div></div>`;
  document.querySelectorAll('[data-mse]').forEach(x=>x.onclick=()=>{S.mse=x.dataset.mse;render()})}
 function vCal(a){
- const list=D.comps.filter(c=>c.start).sort((x,y)=>x.start.localeCompare(y.start));
+ const ms=a.cat==='master',list=D.comps.filter(c=>c.start&&!!c.ms===ms).sort((x,y)=>x.start.localeCompare(y.start)),undated=ms?D.comps.filter(c=>c.ms&&!c.start):[];
  const lig=D.ligas.filter(l=>a.cat==='alevin'?/Alev/.test(l.cat):a.cat==='infantil'?/Infantil/.test(l.cat):false);
  const nx=nextComps(a)[0],me=S.user.role==='athlete';let cd='';
   if(nx){const n=daysTo(nx.start),on=n<=0;cd=`<div class="card cd" style="margin-bottom:12px"><div class="num">${on?'¡Hoy!':n}${on?'':`<small>${n===1?'día':'días'}</small>`}</div><div><div class="mute">${on?(me?'Estás compitiendo':'Compite hoy'):(me?'Faltan para tu próxima competición':'Faltan para su próxima competición')}</div><b>${esc(nx.name)}</b><div class="mute">${nx.end&&nx.end!==nx.start?fd(nx.start)+' – '+fd(nx.end):fd(nx.start)}${nx.venue?' · '+esc(nx.venue):''}${nx.pool?' · '+esc(nx.pool):''}</div>${nx.iclose&&nx.iclose>=TODAY?`<div style="margin-top:4px;font-weight:600">⏳ La inscripción cierra ${daysTo(nx.iclose)<=0?'hoy':daysTo(nx.iclose)===1?'mañana':'en '+daysTo(nx.iclose)+' días'} (${fd(nx.iclose)})</div>`:''}</div></div>`}
-  $('#v').innerHTML=cd+`<div class="card"><h2>Calendario general</h2><p class="mute">Resaltadas, las competiciones de tu categoría. En gris, las que ya han pasado.</p><div class="lgd"><span><i style="background:var(--soft);border:1px solid var(--accent)"></i>Tu categoría</span><span><i style="background:var(--bg);border:1px dashed var(--mute)"></i>Ya pasada</span></div><div class="tl">
- ${list.map(c=>`${(()=>{const p=(c.end||c.start)<TODAY;return `<div class="it ${p?'past':relevant(c,a)?'rel':''}"><b>${esc(c.name)}</b>${p?' <span class="fin">Finalizada</span>':c.start>=TODAY?` <span class="dleft">${leftTxt(daysTo(c.start))}</span>`:' <span class="dleft">En curso</span>'}`})()} <span class="pill na">${esc(c.norm||'Club')}</span><br><span>${c.end&&c.end!==c.start?fd(c.start)+' – '+fd(c.end):fd(c.start)}${c.day?' · '+esc(c.day):''}${c.time?' · '+esc(c.time):''}</span> · <span class="mute">${esc(c.venue||'')} ${c.pool?'· '+esc(c.pool):''}</span><br><span class="mute">${esc(c.cat)}</span>${c.iopen?`<br><span class="mute">Inscripción ${fd(c.iopen)} – ${fd(c.iclose)}${c.prov?' · provisional '+fd(c.prov):''}${c.defi?' · definitivo '+fd(c.defi):''}</span>`:''}</div>`).join('')}</div></div>
+  $('#v').innerHTML=cd+`<div class="card">${ms?`<h2>Calendario Màster</h2><p class="mute">Campeonatos de Catalunya Màster y Circuit Català de Trofeus Màster, temporada 2026-27, según el calendario de la Federació Catalana de Natació (actualizado el ${MS_UPD}). En gris, las que ya han pasado.</p><div class="row" style="margin-bottom:8px"><a class="btn ghost" href="${MS_PDF}" target="_blank" rel="noopener">📄 Calendario oficial (PDF)</a><a class="btn ghost" href="${MS_PAGE}" target="_blank" rel="noopener">🌐 Web FCN Màsters</a></div><div class="lgd"><span><i style="background:var(--soft);border:1px solid var(--accent)"></i>Campeonato de Catalunya</span>`:`<h2>Calendario general</h2><p class="mute">Resaltadas, las competiciones de tu categoría. En gris, las que ya han pasado.</p><div class="lgd"><span><i style="background:var(--soft);border:1px solid var(--accent)"></i>Tu categoría</span>`}<span><i style="background:var(--bg);border:1px dashed var(--mute)"></i>Ya pasada</span></div><div class="tl">
+ ${list.map(c=>`${(()=>{const p=(c.end||c.start)<TODAY;return `<div class="it ${p?'past':(ms?/Campionat/.test(c.cat):relevant(c,a))?'rel':''}"><b>${esc(c.name)}</b>${p?' <span class="fin">Finalizada</span>':c.start>=TODAY?` <span class="dleft">${leftTxt(daysTo(c.start))}</span>`:' <span class="dleft">En curso</span>'}`})()} <span class="pill na">${esc(c.ms?(/Campionat/.test(c.cat)?'Campeonato':'Circuito'):(c.norm||'Club'))}</span><br><span>${c.end&&c.end!==c.start?fd(c.start)+' – '+fd(c.end):fd(c.start)}${c.day?' · '+esc(c.day):''}${c.time?' · '+esc(c.time):''}</span> · <span class="mute">${esc(c.venue||'')} ${c.pool?'· '+esc(c.pool):''}</span><br><span class="mute">${esc(c.cat)}</span>${c.iopen?`<br><span class="mute">Inscripción ${fd(c.iopen)} – ${fd(c.iclose)}${c.prov?' · provisional '+fd(c.prov):''}${c.defi?' · definitivo '+fd(c.defi):''}</span>`:''}</div>`).join('')}</div>${undated.length?`<div class="note" style="margin-top:12px">📅 Pendiente de fecha y confirmación: ${undated.map(c=>`<b>${esc(c.name)}</b> (${esc(c.venue)} · ${esc(c.pool)})`).join(' · ')}</div>`:''}</div>
  ${lig.length?`<div class="card" style="margin-top:12px"><h3>${esc(lig[0].name)}</h3><div class="tw"><table><thead><tr><th>Jornada</th><th>Del</th><th>Al</th><th>Entrega de tiempos</th><th>Publicación</th></tr></thead><tbody>${lig.map(l=>`<tr class="${(l.end||l.start)<TODAY?'past':''}"><td>${esc(l.j)}</td><td>${fd(l.start)}</td><td>${fd(l.end)}</td><td>${fd(l.deadline)}</td><td>${fd(l.pub)}</td></tr>`).join('')}</tbody></table></div></div>`:''}`}
 function vNorm(a){
+ if(a.cat==='master'){$('#v').innerHTML=`<div class="card"><h2>Normativas Màster</h2><p class="mute">Documentos oficiales de natación màster de la Federació Catalana de Natació, temporada 2026-27. Se abren en la web federativa.</p><div class="stack">
+  ${MS_NORMS.map(n=>`<div class="row"><span class="pill ok">${esc(n[0])}</span><div class="sp"><b>${esc(n[1])}</b></div><a class="btn ghost" href="https://www.natacio.cat/wp-json/files/ow-getFile?file=${n[2]}" target="_blank" rel="noopener">Abrir PDF</a></div>`).join('')}
+  <div class="row"><span class="pill na">Calendario</span><div class="sp"><b>Calendari Cts. Catalunya i Circuit Català Trofeus Natació Màsters</b><br><span class="mute">Actualizado el ${MS_UPD}</span></div><a class="btn ghost" href="${MS_PDF}" target="_blank" rel="noopener">Abrir PDF</a></div></div>
+  <div class="note" style="margin-top:12px">El resto de normativas màster y sus actualizaciones están en la <a href="${MS_PAGE}" target="_blank" rel="noopener">web de la FCN</a>.</div></div>`;return}
  const seen={};D.comps.forEach(c=>{if(c.norm&&!seen[c.norm])seen[c.norm]=c});
  $('#v').innerHTML=`<div class="card"><h2>Normativas</h2><p class="mute">Documentos oficiales de la Federació Catalana de Natació. Se abren en la web federativa.</p><div class="stack">
  ${Object.values(seen).sort((x,y)=>(relevant(y,a)-relevant(x,a))||x.norm.localeCompare(y.norm)).map(c=>`<div class="row"><span class="pill ${relevant(c,a)?'ok':'na'}">${esc(c.norm)}</span><div class="sp"><b>${esc(c.name)}</b><br><span class="mute">${esc(c.cat)}</span></div>${NORMS[c.norm]?`<a href="https://www.natacio.cat/wp-json/files/ow-getFile?file=${NORMS[c.norm]}" target="_blank" rel="noopener">Abrir PDF</a>`:''}</div>`).join('')}</div>
@@ -607,8 +643,8 @@ function qComps(q){const stop=['campionat','catalunya','campeonato','cataluna','
  const w=q.replace(/invierno/g,'hivern').replace(/verano/g,'estiu').replace(/alevin/g,'alevi');
  return D.comps.filter(c=>c.start).map(c=>{let s=0;nn(c.name).replace(/aleví/g,'alevi').split(/[^a-z]+/).filter(x=>x.length>3&&!stop.includes(x)).forEach(x=>{if(w.includes(x))s+=2});
   if(c.norm&&(new RegExp('\\b'+nn(c.norm)+'\\b').test(w)||new RegExp('normativa\\s*0?'+parseInt(c.norm.slice(1))+'\\b').test(w)))s+=5;return {c,s}}).filter(x=>x.s>=2).sort((a,b)=>b.s-a.s).map(x=>x.c)}
-function compText(c){const L=NORMS[c.norm]?`https://www.natacio.cat/wp-json/files/ow-getFile?file=${NORMS[c.norm]}`:'';
- return `**${c.name}** (${c.norm?'normativa '+c.norm:'calendario del club'})\n• ${c.cat||''}${c.venue?' · '+c.venue:''}${c.pool?' · piscina '+c.pool:''}\n• Fechas: del ${fd(c.start)} al ${fd(c.end)}`+
+function compText(c){const L=NORMS[c.norm]?`https://www.natacio.cat/wp-json/files/ow-getFile?file=${NORMS[c.norm]}`:c.pdf?`https://www.natacio.cat/wp-json/files/ow-getFile?file=${c.pdf}`:'';
+ return `**${c.name}** (${c.norm?'normativa '+c.norm:c.ms?'calendario FCN Màster':'calendario del club'})\n• ${c.cat||''}${c.venue?' · '+c.venue:''}${c.pool?' · piscina '+c.pool:''}\n• Fechas: del ${fd(c.start)} al ${fd(c.end)}`+
  (c.mfrom?`\n• Marcas válidas: del ${fd(c.mfrom)} al ${fd(c.mto)}`:'')+(c.iopen?`\n• Inscripción: del ${fd(c.iopen)} al ${fd(c.iclose)}`:'')+(c.prov?`\n• Listado provisional: ${fd(c.prov)}${c.defi?' · definitivo: '+fd(c.defi):''}`:'')+(c.notes?`\n• Notas: ${c.notes}`:'')+(L?`\n• Normativa: ${L}`:'')}
 function markLine(m){const c=m.s+corr(m),mm=(se,lab)=>{const x=mInfo(m,se);return x?` · ${lab} ${x.min}: ${x.ok?'✅':'faltan '+x.gap.toFixed(2).replace('.',',')+' s ('+x.pct.toFixed(1).replace('.',',')+' %)'}`:''};return `• ${evName(m.ev)} (piscina ${m.pool} m): **${m.t}**${corr(m)?` (manual, corregida ${fmt(c)})`:''} · ${fd(m.date)}${m.place?' · '+m.place:''}${m.pts?' · '+m.pts+' pts':''}${mm('inv','mín. invierno')}${mm('ver','mín. verano')}`}
 function monthSal(a,mk){let n=0;Object.keys(att).forEach(d=>{if(d.startsWith(mk)&&isTrainDay(d,a.cat)&&d<=TODAY&&isSalowi(a.id,d))n++});return n}
