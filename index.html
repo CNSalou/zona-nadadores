@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Zona Nadadores CN Salou</title>
+<meta name="theme-color" content="#0d2233">
+<meta name="description" content="App de los nadadores del C.N. Salou: marcas, mínimas, calendario, entrenamientos y salowis.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CN Salou">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: login centrado; app con cabecera, pestañas y contenido en una columna de 980px */
+:root{--bg:#f2f6f8;--card:#fff;--ink:#0d2233;--mute:#5b7183;--line:#d6e1e8;--accent:#0a6fa8;--accent-ink:#fff;--good:#1b8a5a;--warn:#b7791f;--bad:#c0392b;--soft:#e3f0f7;
+--fd:'Barlow Condensed','Arial Narrow',sans-serif;--fb:'Source Sans 3',system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1a26;--card:#12283a;--ink:#e6f0f6;--mute:#8fa8ba;--line:#24415a;--accent:#4db3e6;--accent-ink:#06202f;--good:#4cc790;--warn:#e3b04b;--bad:#f0786b;--soft:#17344b;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0b1a26;--card:#12283a;--ink:#e6f0f6;--mute:#8fa8ba;--line:#24415a;--accent:#4db3e6;--accent-ink:#06202f;--good:#4cc790;--warn:#e3b04b;--bad:#f0786b;--soft:#17344b;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fb);font-size:16px;line-height:1.45}
+h1,h2,h3{font-family:var(--fd);letter-spacing:.02em;margin:0;text-wrap:balance}
+h2{font-size:26px}h3{font-size:20px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+.login{min-height:100vh;display:grid;place-items:center;padding:16px}
+.lbox{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px;width:min(380px,100%);display:flex;flex-direction:column;gap:14px}
+.lbox h1{font-size:38px;line-height:1}
+label{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:14px}
+input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;width:100%}
+textarea{min-height:84px;resize:vertical}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:10px 16px;font-weight:700}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.err{color:var(--bad);font-size:14px;min-height:20px}
+.top{background:var(--ink);color:var(--bg)}
+.top .wrap{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-block:12px}
+.top h1{font-size:26px;flex:1;min-width:180px}
+.top .btn.ghost{color:var(--bg);border-color:#ffffff55}
+.tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);margin-bottom:16px;scrollbar-width:thin}
+.tab{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;font-weight:600;color:var(--mute);white-space:nowrap}
+.tab[aria-selected=true]{color:var(--accent);border-color:var(--accent)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.stack{display:flex;flex-direction:column;gap:12px}
+.tile .n{font-family:var(--fd);font-size:40px;line-height:1;font-weight:700;color:var(--accent)}
+.tile .l{color:var(--mute);font-size:14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.sp{flex:1}
+.mute{color:var(--mute);font-size:14px}
+.pill{display:inline-block;border-radius:99px;padding:2px 10px;font-size:13px;font-weight:700;border:1px solid currentColor}
+.ok{color:var(--good)}.near{color:var(--warn)}.far{color:var(--bad)}.na{color:var(--mute)}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:13px;color:var(--mute);font-weight:600}
+td.r,th.r{text-align:right}
+.bar{height:8px;border-radius:5px;background:var(--soft);overflow:hidden;min-width:90px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.bar.ok i{background:var(--good)}.bar.near i{background:var(--warn)}
+.ev{display:grid;grid-template-columns:70px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.ev b{font-family:var(--fd);font-size:22px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal .h{font-size:12px;color:var(--mute);text-align:center}
+.day{aspect-ratio:1;min-height:44px;border-radius:8px;border:1px solid var(--line);background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:14px;padding:0}
+.day.e{visibility:hidden}
+.day.today{border-color:var(--accent);border-width:2px}
+.day.sel{outline:3px solid var(--accent)}
+.day small{font-weight:700}
+.day.rt{color:#06202f}
+.day.off{opacity:.55}
+.day.fa{background:var(--line);color:var(--mute)}
+.day.sch::after{content:'';width:5px;height:5px;border-radius:50%;background:var(--accent);margin-top:2px}
+.lg{display:flex;justify-content:space-between;font-size:13px;color:var(--mute)}
+.brand{height:44px;width:44px;border-radius:50%}
+.lbox .brand{height:96px;width:96px;align-self:center}
+.rate{display:flex;gap:6px;flex-wrap:wrap}
+.rate button{width:40px;height:44px;border-radius:8px;border:1px solid var(--line);background:var(--card);font-weight:700}
+.rate button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.tl{border-left:3px solid var(--line);padding-left:14px;display:flex;flex-direction:column;gap:12px;margin-left:6px}
+.tl .it{position:relative}
+.tl .it::before{content:"";position:absolute;left:-22px;top:6px;width:11px;height:11px;border-radius:50%;background:var(--accent)}
+.tl .it.past::before{background:var(--line)}
+.tl .it.rel{background:var(--soft);border-radius:8px;padding:8px 10px}
+a{color:var(--accent)}
+.note{background:var(--soft);border-radius:8px;padding:10px 12px;font-size:14px}
+.ev-card h3{margin-bottom:4px}
+.sec{display:grid;gap:4px}
+@media (max-width:520px){.ev{grid-template-columns:56px 1fr}.ev>:last-child{grid-column:1/-1}}
+@media (prefers-reduced-motion:no-preference){.bar i{transition:width .4s}}
+
+.hello h2{font-size:34px;line-height:1.1}
+.quote{border-left:5px solid var(--accent)}
+.quote blockquote{margin:0 0 6px;font-size:19px;font-style:italic;line-height:1.4}
+.sal{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.sal .coin{width:56px;height:56px;flex:none}
+.sal .big{font-family:var(--fd);font-size:44px;font-weight:700;line-height:1;color:#b8860b}
+.coin-s{width:18px;height:18px;vertical-align:-3px;margin-right:4px}
+.sheet{background:#fff;color:#222;border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:75vh;color-scheme:light}
+.sheet table{border-collapse:collapse;width:max-content;min-width:100%;font-size:13px;font-family:Arial,var(--fb)}
+.sheet td{border:1px solid #e3e7ec;padding:4px 8px;white-space:pre-wrap;vertical-align:middle;line-height:1.3;height:24px}
+/* app instalada: respetar la muesca del iPhone */
+body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+.install{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:0 6px 24px #0003;display:flex;gap:10px;align-items:center;z-index:9}
+.install p{margin:0;flex:1;font-size:14px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="config.js"></script>
+<script>
+const LOGO="logo.png";
+const NORMS={N09:22519,N10:22520,N20:22530,N21:22531,N22:22532,N24:22534,N25:22535,N26:22536,N27:22795,N28:22796};
+const STY={L:0,E:1,B:2,M:3,S:4},STYN={L:'Libre',E:'Espalda',B:'Braza',M:'Mariposa',S:'Estilos'};
+const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let S={user:null,tab:'resumen',aid:null,month:null,day:null};
+let D=null,TOKEN=null,evals={},train={},att={};
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+function evName(e){const m=e.match(/^(\d+)([LEBMS])$/);return m?m[1]+' m '+STYN[m[2]].toLowerCase():e}
+function evSort(a,b){const ma=a.match(/^(\d+)([A-Z])/),mb=b.match(/^(\d+)([A-Z])/);return STY[ma[2]]-STY[mb[2]]||ma[1]-mb[1]}
+function corr(m){return m.ch==='Manual'?(m.ev.startsWith('50')?.29:.19):0}
+const RC=r=>`hsl(${135-(r-1)*14} 65% 62%)`;
+function wk(d){const x=new Date(d+'T12:00:00');x.setDate(x.getDate()-((x.getDay()+6)%7));return iso(x)}
+function fmt(s){const m=Math.floor(s/60),x=s-m*60;return String(m).padStart(2,'0')+':'+x.toFixed(2).padStart(5,'0')}
+function fd(iso){if(!iso)return '—';const[y,m,d]=iso.split('-');return d+'/'+m+'/'+y}
+function ym(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
+function iso(d){return ym(d)+'-'+String(d.getDate()).padStart(2,'0')}
+const TODAY=iso(new Date());
+const athlete=id=>D.athletes.find(a=>a.id===id);
+/* Frase motivacional del mes (índice = mes, enero = 0). Traducciones al castellano. */
+const QUOTES=[
+ ['El éxito no es casualidad. Es trabajo duro, perseverancia, aprendizaje, estudio, sacrificio y, sobre todo, amor por lo que haces.','Pelé','fútbol'],
+ ['Los campeones siguen jugando hasta que lo hacen bien.','Billie Jean King','tenis'],
+ ['Todos tenemos sueños. Pero para hacerlos realidad hace falta mucha determinación, dedicación, autodisciplina y esfuerzo.','Jesse Owens','atletismo'],
+ ['Empieza donde estás. Usa lo que tienes. Haz lo que puedas.','Arthur Ashe','tenis'],
+ ['No soy la próxima Usain Bolt ni el próximo Michael Phelps. Soy la primera Simone Biles.','Simone Biles','gimnasia'],
+ ['Creo que todo es posible si te lo propones y le dedicas el trabajo y el tiempo necesarios.','Michael Phelps','natación'],
+ ['Todo lo negativo, la presión, los retos, es una oportunidad para crecer.','Kobe Bryant','baloncesto'],
+ ['No pienso en límites.','Usain Bolt','atletismo'],
+ ['No puedes ponerle límites a nada. Cuanto más sueñas, más lejos llegas.','Michael Phelps','natación'],
+ ['He fallado una y otra vez en mi vida. Y por eso tengo éxito.','Michael Jordan','baloncesto'],
+ ['Odiaba cada minuto de entrenamiento, pero me decía: no abandones. Sufre ahora y vive el resto de tu vida como un campeón.','Muhammad Ali','boxeo'],
+ ['Fallas el 100 % de los tiros que no intentas.','Wayne Gretzky','hockey sobre hielo']];
+const COIN=`<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#f5c542" stroke="#b8860b" stroke-width="4"/><circle cx="32" cy="32" r="21" fill="none" stroke="#b8860b" stroke-width="2" stroke-dasharray="3 3"/><text x="32" y="42" text-anchor="middle" font-family="Barlow Condensed,Arial Narrow,sans-serif" font-weight="700" font-size="30" fill="#7a5800">S</text></svg>`;
+const isTrainDay=d=>{const w=new Date(d+'T12:00:00').getDay();return w>=1&&w<=4};
+/* Salowis: 1 por cada entrenamiento (L-J) en el que el entrenador marca «Asistió». Máximo = entrenamientos con lista del grupo.
+   Para un nadador, el servidor marca con _g los días en que su grupo tuvo lista. */
+function salowis(a,mk){const all=attDays(mk),grp=new Set(D.athletes.filter(x=>x.cat===a.cat).map(x=>x.id));grp.add('_g');let got=0,max=0;
+ Object.keys(all).forEach(d=>{if(!isTrainDay(d)||d>TODAY)return;const day=all[d];if(!Object.keys(day).some(k=>grp.has(k)))return;max++;if(day[a.id]==='p')got++});return {got,max}}
+function salSeason(a){const ms=new Set(Object.keys(att).map(d=>d.slice(0,7)));let t=0;ms.forEach(mk=>t+=salowis(a,mk).got);return t}
+function salCard(a){const mk=ym(new Date()),{got,max}=salowis(a,mk),tot=salSeason(a),me=S.user.role==='athlete';
+ const msg=max===0?'Cuando el entrenador pase lista empezarás a sumar salowis.':got===max?`<b class="ok">¡Pleno! ${me?'No te has perdido':'No se ha perdido'} ningún entrenamiento este mes: ${me?'vas':'va'} a por el premio.</b>`:`${me?'Te has perdido':'Se ha perdido'} ${max-got} de ${max} entrenamientos. Quien vaya a todos los del mes gana el premio.`;
+ return `<div class="card"><h3>Salowis de ${MESES[+mk.slice(5)-1]}</h3><div class="sal" style="margin-top:8px"><span class="coin">${COIN}</span><div><div class="big">${got}<span class="mute" style="font-size:20px;font-weight:600"> / ${max}</span></div><div class="mute">1 salowi por cada entrenamiento al que ${me?'vienes':'viene'} · ${tot} en toda la temporada</div></div></div><p style="margin:10px 0 0">${msg}</p></div>`}
+function hello(a){if(S.user.role!=='athlete')return '';const q=QUOTES[new Date().getMonth()];
+ return `<div class="hello"><h2>¡Hola, ${esc(a.name.split(' ')[0])}!</h2></div>
+ <div class="card quote"><blockquote>«${esc(q[0])}»</blockquote><div class="mute">— <b>${esc(q[1])}</b>, ${esc(q[2])} · Frase de ${MESES[new Date().getMonth()]}</div></div>`}
+const errMsg=e=>String((e&&e.message)||e||'error').replace(/^Error:\s*/,'');
+
+/* ---------- llamadas al script ---------- */
+async function api(fn,...args){
+ let r;try{r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn,args}),redirect:'follow'})}
+ catch(e){throw new Error(navigator.onLine?'No se ha podido conectar con el servidor.':'Sin conexión a internet.')}
+ let j;try{j=await r.json()}catch(e){throw new Error('Respuesta no válida del servidor.')}
+ if(!j.ok){const m=j.error||'error';if(/SESION/.test(m))logout('Tu sesión ha caducado. Vuelve a entrar.');throw new Error(m)}
+ return j.data}
+
+/* ---------- login ---------- */
+function busy(msg){$('#app').innerHTML=`<div class="login"><div class="lbox" style="align-items:center"><img class="brand" src="${LOGO}" alt="Logo del C.N. Salou"><p class="mute" role="status">${esc(msg)}</p></div></div>`}
+function loginView(msg){
+ $('#app').innerHTML=`<div class="login"><form class="lbox" id="lf" autocomplete="off"><img class="brand" src="${LOGO}" alt="Logo del C.N. Salou"><h1>Zona Nadadores</h1><p class="mute" style="margin:0">C.N. Salou · Temporada 26-27</p>
+ <label for="u">Usuario<input id="u" autocapitalize="none" autocomplete="username" placeholder="nombre.apellido" value="${esc(LS.get('cnsalou_u',''))}"></label>
+ <label for="p">PIN o contraseña<input id="p" type="password" inputmode="numeric" autocomplete="current-password"></label>
+ <div class="err" id="er" role="alert">${esc(msg||'')}</div><button class="btn" id="lb" type="submit">Entrar</button></form></div>`;
+ $('#lf').onsubmit=async e=>{e.preventDefault();const u=$('#u').value.trim().toLowerCase(),p=$('#p').value.trim();
+  $('#lb').disabled=true;$('#er').textContent='Comprobando…';
+  try{const r=await api('login',u,p);if(r.error){$('#er').textContent=r.error;$('#lb').disabled=false;return}
+   TOKEN=r.token;LS.set('cnsalou_t',TOKEN);LS.set('cnsalou_u',u);await loadAll()}
+  catch(x){$('#er').textContent='No se ha podido conectar: '+errMsg(x);$('#lb').disabled=false}}
+}
+async function loadAll(){busy('Cargando tus datos…');
+ try{const r=await api('getData',TOKEN);if(r.error){logout(r.error);return}
+  D=r;evals=r.evals||{};train=r.train||{};att=r.att||{};start(r)}
+ catch(e){if(!/SESION/.test(e.message))loginView('No se han podido cargar los datos: '+e.message)}}
+function logout(msg){TOKEN=null;LS.set('cnsalou_t',null);S={user:null,tab:'resumen',aid:null,month:null,day:null};PG.g=null;PG.msg='';loginView(msg)}
+function start(r){const keep=S.user&&S.user.user===r.user;S.user={role:r.role,user:r.user,name:r.name};
+ if(r.role==='athlete')S.aid=r.athletes[0].id;else if(!keep||!athlete(S.aid))S.aid=D.athletes[0].id;
+ if(!keep)S.tab=r.role==='coach'?'asis':'resumen';render()}
+
+/* ---------- datos guardados ---------- */
+function trainDays(aid){return train[aid]||{}}
+async function saveDay(aid,date,val){
+ try{const r=await api('saveTrain',TOKEN,date,val);train[aid]=r.days;return 'Guardado. El entrenador ya lo puede ver.'}
+ catch(e){return 'No se ha guardado: '+e.message}}
+async function saveEval(aid,ev){const r=await api('saveEval',TOKEN,aid,ev);evals[aid]=r.items}
+async function delEval(aid,id){const r=await api('delEval',TOKEN,aid,id);evals[aid]=r.items;render()}
+function attDays(mk){const o={};Object.keys(att).forEach(d=>{if(d.startsWith(mk))o[d]=att[d]});return o}
+async function saveAtt(date,aids,val){
+ try{const r=await api('saveAtt',TOKEN,date,aids,val);att=r.att;return 'Guardado.'}
+ catch(e){return 'No se ha guardado: '+e.message}}
+
+/* ---------- render ---------- */
+function render(){
+ const a=athlete(S.aid),coach=S.user.role==='coach';
+ const tabs=[...(coach?[['asis','Asistencia'],['prog','Programación entrenamientos']]:[]),['resumen','Resumen'],['marcas','Marcas'],['minimas','Mínimas'],['cal','Calendario'],['norm','Normativas'],['ent','Entrenamiento'],['val','Valoraciones']];
+ $('#app').innerHTML=`<header class="top"><div class="wrap"><img class="brand" src="${LOGO}" alt="Logo del C.N. Salou"><h1>${coach?'Panel del entrenador':esc(a.name)}</h1>
+ ${coach?`<label class="row" style="color:var(--bg)" for="sel">Nadador<select id="sel" style="width:auto;color:var(--ink)">${['junior','infantil','alevin'].map(c=>`<optgroup label="${c==='alevin'?'Alevín':c[0].toUpperCase()+c.slice(1)}">${D.athletes.filter(x=>x.cat===c).map(x=>`<option value="${esc(x.id)}" ${x.id===S.aid?'selected':''}>${esc(x.name)}${x.user?'':' (sin usuario)'}</option>`).join('')}</optgroup>`).join('')}</select></label>`:`<span class="mute" style="color:var(--bg)">${a.cat==='alevin'?'Alevín':a.cat[0].toUpperCase()+a.cat.slice(1)} · ${a.year}</span>`}
+ <button class="btn ghost" id="rl" title="Volver a leer el Excel">Actualizar</button><button class="btn ghost" id="out">Salir</button></div></header>
+ <main class="wrap"><nav class="tabs" role="tablist">${tabs.map(t=>`<button class="tab" role="tab" aria-selected="${S.tab===t[0]}" data-t="${t[0]}">${t[1]}</button>`).join('')}</nav><section id="v"></section>
+ <p class="mute" style="text-align:center;margin-top:20px">Datos del Excel leídos el ${esc(D.built)}</p></main>`;
+ $('#out').onclick=()=>logout();
+ $('#rl').onclick=()=>loadAll();
+ if(coach)$('#sel').onchange=e=>{S.aid=e.target.value;S.day=null;render()};
+ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;render()});
+ ({asis:vAsis,prog:vProg,resumen:vRes,marcas:vMar,minimas:vMin,cal:vCal,norm:vNorm,ent:vEnt,val:vVal})[S.tab](a);
+}
+function best(a){return a.marks.map(m=>({...m,c:m.s+corr(m)})).sort((x,y)=>evSort(x.ev,y.ev)||x.pool-y.pool)}
+function stat(m){if(m.ok===undefined)return['na','Sin mínima'];if(m.ok)return['ok','Conseguida'];return m.pct<=2?['near','Casi ('+m.pct.toFixed(1).replace('.',',')+'%)']:['far','+'+m.pct.toFixed(1).replace('.',',')+'%']}
+function nextComps(a){return D.comps.filter(c=>c.start&&c.end>=TODAY&&relevant(c,a)).sort((x,y)=>x.start.localeCompare(y.start))}
+function relevant(c,a){const k=String(c.cat||'').toLowerCase(),y=String(a.year);if(a.cat==='junior')return /j[uú]nior|absolut/.test(k)||k.includes(y);if(a.cat==='infantil')return /infantil/.test(k)||k.includes(y);return /alev/.test(k)||k.includes(y)}
+function attMonth(a){const days=trainDays(a.id),now=new Date(),mk=ym(now),n=new Date(now.getFullYear(),now.getMonth()+1,0).getDate(),off=(new Date(now.getFullYear(),now.getMonth(),1).getDay()+6)%7;let s=0,t=0;for(let d=1;d<=n;d++){const k=mk+'-'+String(d).padStart(2,'0');if(((off+d-1)%7)<4&&k<=TODAY){s++;if(days[k]&&days[k].r>0)t++}}return s?Math.round(t/s*100)+'%':'—'}
+function vRes(a){
+ const b=best(a),withMin=b.filter(m=>m.ok!==undefined),ok=withMin.filter(m=>m.ok),near=withMin.filter(m=>!m.ok&&m.pct<=2);
+ const nx=nextComps(a)[0],ls=(evals[a.id]||[])[0];
+ const top=b.filter(m=>m.pts).sort((x,y)=>y.pts-x.pts).slice(0,3);
+ $('#v').innerHTML=`<div class="stack">${hello(a)}${salCard(a)}<div class="grid g4">
+ <div class="card tile"><div class="n">${b.length}</div><div class="l">marcas registradas</div></div>
+ ${a.cat!=='alevin'?`<div class="card tile"><div class="n">${ok.length}</div><div class="l">mínimas conseguidas de ${withMin.length}</div></div><div class="card tile"><div class="n">${near.length}</div><div class="l">a menos del 2%</div></div>`:`<div class="card tile"><div class="n">—</div><div class="l">alevín: sin mínimas</div></div>`}
+ <div class="card tile"><div class="n">${(()=>{const x=salowis(a,ym(new Date()));return x.max?Math.round(x.got/x.max*100)+'%':'—'})()}</div><div class="l">asistencia este mes (lista del entrenador)</div></div>
+ <div class="card tile"><div class="n">${top[0]?top[0].pts:'—'}</div><div class="l">mejor puntuación World Aquatics</div></div></div>
+ <div class="grid g2">
+ <div class="card"><h3>Próxima competición</h3>${nx?`<p><b>${esc(nx.name)}</b><br><span class="mute">${fd(nx.start)} – ${fd(nx.end)} · ${esc(nx.venue||'')}</span></p><p class="mute">Inscripción: ${fd(nx.iopen)} a ${fd(nx.iclose)}</p>`:'<p class="mute">Sin competiciones pendientes.</p>'}</div>
+ <div class="card"><h3>Última valoración del entrenador</h3>${ls?`<p><b>${esc(ls.comp)}</b> · ${fd(ls.date)}</p><p>${esc(ls.general)}</p>`:'<p class="mute">Todavía no hay valoraciones.</p>'}</div></div>
+ ${top.length?`<div class="card"><h3>Mejores pruebas por puntos</h3>${top.map(m=>`<div class="ev"><b>${evName(m.ev)}</b><div><div class="bar"><i style="width:${Math.min(100,m.pts/10)}%"></i></div></div><div>${fmt(m.s)} · <b>${m.pts}</b> pts</div></div>`).join('')}</div>`:''}
+ ${near.length?`<div class="card"><h3>Mínimas al alcance</h3>${near.map(m=>`<div class="ev"><b>${evName(m.ev)}</b><span class="mute">${m.pool} m</span><div>${fmt(m.c)} → ${m.min} <span class="pill near">+${m.gap.toFixed(2).replace('.',',')} s</span></div></div>`).join('')}</div>`:''}
+ </div>`}
+function vMar(a){
+ const b=best(a);
+ $('#v').innerHTML=`<div class="card"><h2>Marcas</h2><p class="mute">Una marca por prueba y piscina. Las manuales se corrigen +0,29 s (50 m) o +0,19 s (resto).</p><div class="tw"><table><thead><tr><th>Prueba</th><th>Piscina</th><th class="r">Marca</th><th>Crono</th><th class="r">Corregida</th><th class="r">Puntos</th><th>Fecha</th><th>Lugar</th></tr></thead><tbody>
+ ${b.map(m=>`<tr><td><b>${evName(m.ev)}</b></td><td>${m.pool} m</td><td class="r">${m.t}</td><td>${esc(m.ch)}</td><td class="r">${fmt(m.c)}</td><td class="r">${m.pts||'—'}</td><td>${fd(m.date)}</td><td>${esc(m.place||'')}</td></tr>`).join('')}</tbody></table></div></div>`}
+function vMin(a){
+ if(a.cat==='alevin'){$('#v').innerHTML='<div class="card"><h2>Mínimas</h2><p>En categoría alevín no hay tiempos mínimos. Las pruebas se distribuyen por ligas y jornadas; consulta el calendario.</p></div>';return}
+ const b=best(a).filter(m=>m.ok!==undefined);
+ $('#v').innerHTML=`<div class="card"><h2>Marcas frente a mínimas</h2><p class="mute">La barra muestra lo cerca que está tu marca corregida de la mínima de Cataluña (año ${a.year}).</p>
+ ${b.map(m=>{const[k,t]=stat(m);const p=m.ok?100:Math.max(4,100-m.pct*4);return `<div class="ev"><b>${evName(m.ev)}</b><div><div class="bar ${k}"><i style="width:${p}%"></i></div><div class="mute">${m.pool} m · ${fd(m.date)}</div></div><div style="text-align:right">${fmt(m.c)} / ${m.min}<br><span class="pill ${k}">${t}</span></div></div>`}).join('')||'<p class="mute">No hay pruebas con mínima definida.</p>'}</div>`}
+function vCal(a){
+ const list=D.comps.filter(c=>c.start).sort((x,y)=>x.start.localeCompare(y.start));
+ const lig=D.ligas.filter(l=>a.cat==='alevin'?/Alev/.test(l.cat):a.cat==='infantil'?/Infantil/.test(l.cat):false);
+ $('#v').innerHTML=`<div class="card"><h2>Calendario general</h2><p class="mute">Resaltadas, las competiciones de tu categoría.</p><div class="tl">
+ ${list.map(c=>`<div class="it ${(c.end||c.start)<TODAY?'past':''} ${relevant(c,a)?'rel':''}"><b>${esc(c.name)}</b> <span class="pill na">${esc(c.norm)}</span><br><span>${fd(c.start)} – ${fd(c.end)}</span> · <span class="mute">${esc(c.venue||'')} ${c.pool?'· '+esc(c.pool):''}</span><br><span class="mute">${esc(c.cat)}</span>${c.iopen?`<br><span class="mute">Inscripción ${fd(c.iopen)} – ${fd(c.iclose)}${c.prov?' · provisional '+fd(c.prov):''}${c.defi?' · definitivo '+fd(c.defi):''}</span>`:''}</div>`).join('')}</div></div>
+ ${lig.length?`<div class="card" style="margin-top:12px"><h3>${esc(lig[0].name)}</h3><div class="tw"><table><thead><tr><th>Jornada</th><th>Del</th><th>Al</th><th>Entrega de tiempos</th><th>Publicación</th></tr></thead><tbody>${lig.map(l=>`<tr><td>${esc(l.j)}</td><td>${fd(l.start)}</td><td>${fd(l.end)}</td><td>${fd(l.deadline)}</td><td>${fd(l.pub)}</td></tr>`).join('')}</tbody></table></div></div>`:''}`}
+function vNorm(a){
+ const seen={};D.comps.forEach(c=>{if(c.norm&&!seen[c.norm])seen[c.norm]=c});
+ $('#v').innerHTML=`<div class="card"><h2>Normativas</h2><p class="mute">Documentos oficiales de la Federació Catalana de Natació. Se abren en la web federativa.</p><div class="stack">
+ ${Object.values(seen).sort((x,y)=>(relevant(y,a)-relevant(x,a))||x.norm.localeCompare(y.norm)).map(c=>`<div class="row"><span class="pill ${relevant(c,a)?'ok':'na'}">${esc(c.norm)}</span><div class="sp"><b>${esc(c.name)}</b><br><span class="mute">${esc(c.cat)}</span></div>${NORMS[c.norm]?`<a href="https://www.natacio.cat/wp-json/files/ow-getFile?file=${NORMS[c.norm]}" target="_blank" rel="noopener">Abrir PDF</a>`:''}</div>`).join('')}</div>
+ <div class="note" style="margin-top:12px">Las normativas pueden actualizarse. Ante cualquier duda, manda el documento vigente de la federación.</div></div>`}
+function vEnt(a){
+ const now=new Date();if(!S.month)S.month=ym(now);const[y,m]=S.month.split('-').map(Number);
+ const days=trainDays(a.id),first=new Date(y,m-1,1),n=new Date(y,m,0).getDate(),off=(first.getDay()+6)%7;
+ const mn=MESES[m-1];
+ const vals=Object.entries(days).filter(([d,v])=>d.startsWith(S.month)&&v.r>0).map(([,v])=>v.r),avg=vals.length?(vals.reduce((s,x)=>s+x,0)/vals.length).toFixed(1).replace('.',','):'—';
+ let sch=0,at=0,abs=0;for(let d=1;d<=n;d++){const k=S.month+'-'+String(d).padStart(2,'0');if(((off+d-1)%7)<4&&k<=TODAY){sch++;const v=days[k];if(v&&v.r>0)at++;else if(v)abs++}}
+ const pct=sch?Math.round(at/sch*100):null,unr=sch-at-abs;
+ let cells='';for(let i=0;i<off;i++)cells+='<div class="day e"></div>';
+ for(let d=1;d<=n;d++){const k=S.month+'-'+String(d).padStart(2,'0'),v=days[k];const sc=((off+d-1)%7)<4;cells+=`<button class="day ${v&&v.r?'rt':''} ${v&&!v.r?'fa':''} ${sc?'sch':'off'} ${k===TODAY?'today':''} ${k===S.day?'sel':''}" ${v&&v.r?`style="background:${RC(v.r)}"`:''} data-d="${k}" aria-label="Día ${d}${v?(v.r?', esfuerzo '+v.r+' de 10':', no asistió'):''}">${d}${v?`<small>${v.r||'✕'}</small>`:''}</button>`}
+ const ro=S.user.role==='coach';
+ $('#v').innerHTML=`<div style="margin-bottom:12px">${salCard(a)}</div><div class="grid g2"><div class="card"><div class="row"><button class="btn ghost" id="pm" aria-label="Mes anterior">‹</button><h3 class="sp" style="text-align:center">${mn} ${y}</h3><button class="btn ghost" id="nm" aria-label="Mes siguiente">›</button></div>
+ <div class="cal" style="margin-top:10px">${['L','M','X','J','V','S','D'].map(x=>`<div class="h">${x}</div>`).join('')}${cells}</div><p class="mute">Media del mes: <b>${avg}</b> (1 muy fácil, 10 muy duro). El punto marca los días de entrenamiento (lunes a jueves).</p>
+ <div class="row" style="margin-top:8px"><div class="tile"><div class="n">${pct===null?'—':pct+'%'}</div><div class="l">asistencia en ${mn}</div></div><div class="mute">${at} de ${sch} entrenamientos asistidos${abs?`, ${abs} faltas`:''}${unr>0?`, ${unr} sin registrar`:''}</div></div></div>
+ <div class="card" id="ed">${S.day?'':`<p class="mute">${ro?'Elige un día para ver cómo valoró el entrenamiento.':'Elige un día para valorar cómo fue el entrenamiento.'}</p>`}</div></div>
+ <div class="card" style="margin-top:12px" id="lc">${loadChart(days)}</div>`;
+ $('#pm').onclick=()=>{S.month=ym(new Date(y,m-2,1));render()};$('#nm').onclick=()=>{S.month=ym(new Date(y,m,1));render()};
+ document.querySelectorAll('.day[data-d]').forEach(b=>b.onclick=()=>{S.day=b.dataset.d;render()});
+ if(S.day){const v=days[S.day]||{r:0,n:'',m:0};const ab=days[S.day]&&!days[S.day].r;
+  $('#ed').innerHTML=`<h3>${fd(S.day)}</h3><div class="stack"><div><div class="mute">Dureza del entrenamiento: 1 muy fácil, 10 muy duro</div><div class="rate" id="rt">${[1,2,3,4,5,6,7,8,9,10].map(i=>`<button data-r="${i}" aria-pressed="${v.r===i}" ${ro?'disabled':''}>${i}</button>`).join('')}</div></div>
+  <label for="mn">Duración (minutos)<input id="mn" type="number" min="0" max="300" step="5" value="${v.m||''}" placeholder="90" ${ro?'readonly':''}></label><label for="nt">Comentario<textarea id="nt" ${ro?'readonly':''}>${esc(v.n)}</textarea></label>
+  ${ro?(ab?'<div class="pill na">No asistió</div>':''):'<div class="row"><button class="btn" id="sv">Guardar</button><button class="btn ghost" id="ab">No he asistido</button><button class="btn ghost" id="dl">Borrar</button></div>'}<div class="mute" id="ms" role="status"></div></div>`;
+  if(!ro){let r=v.r;if(ab)r=0;document.querySelectorAll('#rt button').forEach(b=>b.onclick=()=>{r=+b.dataset.r;document.querySelectorAll('#rt button').forEach(x=>x.setAttribute('aria-pressed',+x.dataset.r===r))});
+   const go=async(val)=>{document.querySelectorAll('#ed .btn').forEach(b=>b.disabled=true);$('#ms').textContent='Guardando…';const msg=await saveDay(a.id,S.day,val);render();const el=$('#ms');if(el)el.textContent=msg};
+   $('#sv').onclick=()=>{if(!r){$('#ms').textContent='Elige una dureza del 1 al 10.';return}go({r,n:$('#nt').value.trim(),m:Math.max(0,Math.min(300,+$('#mn').value||0))})};
+   $('#ab').onclick=()=>go({r:0,n:$('#nt').value.trim(),m:0});
+   $('#dl').onclick=()=>go(null)}}}
+
+function loadChart(days){
+ const W={};Object.entries(days).forEach(([d,v])=>{if(!v.r)return;const k=wk(d);const w=W[k]||(W[k]={n:0,l:0,s:0});w.n++;w.s+=v.r;w.l+=v.r*(v.m||60)});
+ const cur=wk(TODAY),ws=[];for(let i=9;i>=0;i--){const x=new Date(cur+'T12:00:00');x.setDate(x.getDate()-7*i);ws.push(iso(x))}
+ const L=ws.map(k=>W[k]?W[k].l:0),A=ws.map(k=>W[k]?W[k].s/W[k].n:null),N=ws.map(k=>W[k]?W[k].n:0);
+ if(!Object.keys(W).length)return '<h3>Control de carga</h3><p class="mute">Cuando se registren entrenamientos aparecerá aquí la carga semanal.</p>';
+ const prev=L.slice(5,9).filter(x=>x>0),chr=prev.length?prev.reduce((s,x)=>s+x,0)/prev.length:0,ac=L[9];
+ const ratio=chr?ac/chr:null;
+ let st=['na','Sin base de comparación'];if(ratio!==null){st=ratio>1.5?['far','Carga muy alta']:ratio>1.3?['near','Carga alta, vigilar']:ratio>=.8?['ok','Carga equilibrada']:['near','Carga baja']}
+ const w=640,h=240,l=44,r=40,tp=14,b=34,mx=Math.max(...L,1)*1.15,bw=(w-l-r)/10;
+ const y=v=>tp+(h-tp-b)*(1-v/mx),y2=v=>tp+(h-tp-b)*(1-v/10);
+ let s=`<svg viewBox="0 0 ${w} ${h}" width="100%" role="img" aria-label="Carga semanal de entrenamiento">`;
+ for(let i=0;i<=4;i++){const v=mx*i/4,yy=y(v);s+=`<line x1="${l}" x2="${w-r}" y1="${yy}" y2="${yy}" stroke="var(--line)"/><text x="${l-6}" y="${yy+4}" text-anchor="end" font-size="11" fill="var(--mute)">${Math.round(v)}</text>`}
+ [0,5,10].forEach(v=>s+=`<text x="${w-r+6}" y="${y2(v)+4}" font-size="11" fill="var(--warn)">${v}</text>`);
+ ws.forEach((k,i)=>{const x=l+i*bw+bw*.18,bh=(h-b)-y(L[i]);s+=`<rect x="${x}" y="${y(L[i])}" width="${bw*.64}" height="${Math.max(bh,0)}" rx="3" fill="var(--accent)" opacity="${i===9?1:.6}"><title>Semana del ${fd(k)}: carga ${L[i]}, ${N[i]} sesiones</title></rect><text x="${x+bw*.32}" y="${h-b+14}" text-anchor="middle" font-size="10" fill="var(--mute)">${k.slice(8)}/${k.slice(5,7)}</text>`});
+ let pts=ws.map((k,i)=>A[i]===null?null:[l+i*bw+bw/2,y2(A[i])]);
+ s+=`<polyline fill="none" stroke="var(--warn)" stroke-width="2.5" points="${pts.filter(Boolean).map(p=>p.join(',')).join(' ')}"/>`;
+ pts.forEach((p,i)=>{if(p)s+=`<circle cx="${p[0]}" cy="${p[1]}" r="${i===9?5:3.5}" fill="var(--warn)"><title>Dureza media ${A[i].toFixed(1)}</title></circle>`});
+ s+='</svg>';
+ return `<h3>Control de carga</h3><div class="row"><span class="pill ${st[0]}">${st[1]}</span>${ratio!==null?`<span class="mute">Esta semana ${Math.round(ac)} frente a ${Math.round(chr)} de media de las 4 anteriores (×${ratio.toFixed(2).replace('.',',')})</span>`:''}</div>
+ <div class="lg"><span>Barras: carga semanal (dureza × minutos)</span><span>Línea: dureza media (1-10)</span></div>${s}
+ <p class="mute">La semana en curso aún está incompleta. Si no se indica duración, se cuenta como 60 minutos. Ante una carga muy alta o un cambio brusco, conviene hablar con el entrenador.</p>`}
+
+/* ---------- programación (entrenador, solo lectura) ---------- */
+const PROG_ID='11XhbiyIoxIy-zU0B29RDvOIw7tru7JI_rH3_FIe_wIk';
+let PG={tab:LS.get('cnsalou_ptab',''),tabs:[],g:null,msg:'',busy:false};
+async function pLoad(){
+ PG.busy=true;PG.msg='Cargando el archivo…';vProg();
+ try{const r=await api('getProg',TOKEN,PG.tab,200);PG.tabs=r.tabs;PG.tab=r.tab;PG.g=r;PG.msg=''}
+ catch(e){PG.msg='No se ha podido leer el archivo: '+e.message+'. Puedes abrirlo con el botón.';PG.g=null}
+ PG.busy=false;if(S.user&&S.tab==='prog')vProg()}
+function sheetHtml(G){
+ const V=G.vals,nr=V.length,nc=Math.max(0,...V.map(r=>r.length));if(!nr)return '<p style="padding:16px">Esta pestaña está vacía.</p>';
+ const span={},skip={};(G.merges||[]).forEach(([r0,c0,rs,cs])=>{if(r0>=nr||c0>=nc)return;rs=Math.min(rs,nr-r0);cs=Math.min(cs,nc-c0);span[r0+','+c0]=[rs,cs];for(let i=r0;i<r0+rs;i++)for(let j=c0;j<c0+cs;j++)if(i!==r0||j!==c0)skip[i+','+j]=1});
+ let h='<table><colgroup>'+Array.from({length:nc},(_,j)=>`<col style="width:${Math.max(40,(G.widths&&G.widths[j])||100)}px">`).join('')+'</colgroup><tbody>';
+ for(let i=0;i<nr;i++){h+='<tr>';for(let j=0;j<nc;j++){if(skip[i+','+j])continue;const sp=span[i+','+j],g=(k)=>(G[k]&&G[k][i]&&G[k][i][j])||'';
+  const al=String(g('al')).toLowerCase().replace('general-','');
+  h+=`<td${sp?` rowspan="${sp[0]}" colspan="${sp[1]}"`:''} style="background:${g('bg')||'#fff'};color:${g('fc')||'#222'};${g('b')?'font-weight:700;':''}${al&&al!=='general'?'text-align:'+al:''}">${esc(V[i][j]||'')}</td>`}h+='</tr>'}
+ return h+'</tbody></table>'}
+function vProg(){
+ const gid=PG.g&&PG.g.gid,url=`https://docs.google.com/spreadsheets/d/${PROG_ID}/edit${gid!==undefined&&gid!==null?'#gid='+gid:''}`;
+ const open=`<a class="btn" href="${url}" target="_blank" rel="noopener" style="text-decoration:none">Abrir archivo</a>`;
+ if(!PG.g&&!PG.busy&&!PG.msg){pLoad();return}
+ $('#v').innerHTML=`<div class="card stack"><div class="row"><h2 class="sp">Programación entrenamientos</h2>${open}</div>
+ <div class="row"><label for="pt" class="row" style="flex-direction:row">Pestaña<select id="pt" style="width:auto">${(PG.tabs.length?PG.tabs:[PG.tab]).map(n=>`<option ${n===PG.tab?'selected':''}>${esc(n)}</option>`).join('')}</select></label><button class="btn ghost" id="pr">Recargar</button><span class="mute sp">Solo lectura. Para cambiar algo, abre el archivo.</span></div>
+ ${PG.msg?`<div class="mute" role="status">${esc(PG.msg)}</div>`:''}${PG.g?`<div class="sheet">${sheetHtml(PG.g)}</div>`:''}</div>`;
+ $('#pt').onchange=e=>{PG.tab=e.target.value;LS.set('cnsalou_ptab',PG.tab);PG.g=null;PG.msg='';pLoad()};
+ $('#pr').onclick=()=>{PG.g=null;PG.msg='';pLoad()}}
+
+/* ---------- asistencia (entrenador) ---------- */
+function vAsis(){
+ if(!S.adate)S.adate=TODAY;if(!S.agrp)S.agrp='junior';
+ const d=S.adate,mk=d.slice(0,7),all=attDays(mk),day=all[d]||{};
+ const dt=new Date(d+'T12:00:00'),dn=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][dt.getDay()],sch=[1,2,3,4].includes(dt.getDay());
+ const grp=D.athletes.filter(a=>a.cat===S.agrp),taken=Object.keys(all).filter(x=>Object.keys(all[x]).length&&(()=>{const w=new Date(x+'T12:00:00').getDay();return w>=1&&w<=4})()).sort();
+ const ids=new Set(grp.map(a=>a.id)),takenG=taken.filter(x=>x<=TODAY&&Object.keys(all[x]).some(k=>ids.has(k)));
+ const rows=grp.map(a=>{const c={p:0,f:0};takenG.forEach(x=>{const v=all[x][a.id];if(v in c)c[v]++});const den=c.p+c.f;return {a,c,pct:den?Math.round(c.p/den*100):null}});
+ const topS=Math.max(0,...rows.map(r=>r.c.p));
+ const cnt={p:grp.filter(a=>day[a.id]==='p').length,f:grp.filter(a=>day[a.id]==='f').length};
+ const nx=n=>{const x=new Date(d+'T12:00:00');x.setDate(x.getDate()+n);S.adate=iso(x);render()};
+ $('#v').innerHTML=`<div class="stack"><div class="card stack"><h2>Control de asistencia</h2>
+ <div class="row"><button class="btn ghost" id="ap" aria-label="Día anterior">‹</button><label for="ad" class="row" style="flex-direction:row">Día<input id="ad" type="date" value="${d}" style="width:auto"></label><button class="btn ghost" id="an" aria-label="Día siguiente">›</button><button class="btn ghost" id="at">Hoy</button><span class="sp"></span>
+ <label for="ag" class="row" style="flex-direction:row">Grupo<select id="ag" style="width:auto">${[['junior','Junior'],['infantil','Infantil'],['alevin','Alevín']].map(g=>`<option value="${g[0]}" ${S.agrp===g[0]?'selected':''}>${g[1]}</option>`).join('')}</select></label></div>
+ <div class="row"><b>${dn} ${fd(d)}</b>${sch?'':'<span class="pill near">No es día de entrenamiento</span>'}<span class="mute">${cnt.p} han asistido · ${cnt.f} no han asistido · ${grp.length-cnt.p-cnt.f} sin marcar</span><span class="sp"></span><button class="btn ghost" id="all">Marcar que han asistido todos</button></div>
+ ${grp.map(a=>`<div class="row" style="border-top:1px solid var(--line);padding-top:8px"><b class="sp" style="min-width:160px">${esc(a.name)}</b>${[['p','Asistió'],['f','No asistió']].map(o=>`<button class="btn ghost" data-a="${esc(a.id)}" data-v="${o[0]}" aria-pressed="${day[a.id]===o[0]}" style="${day[a.id]===o[0]?'background:var(--'+(o[0]==='p'?'good':'bad')+');color:#06202f;border-color:transparent':''}">${o[1]}</button>`).join('')}</div>`).join('')}
+ <div class="mute" id="as" role="status">${esc(S.amsg||'')}</div></div>
+ <div class="card"><h3>Resumen de ${MESES[+mk.slice(5)-1]} (${S.agrp==='alevin'?'Alevín':S.agrp[0].toUpperCase()+S.agrp.slice(1)})</h3><p class="mute">${takenG.length} entrenamientos con lista. Cada asistencia suma 1 salowi; quien llegue a ${takenG.length} salowis (todos los entrenamientos) gana el premio del mes. 🏆 = más salowis del grupo.</p>
+ <div class="tw"><table><thead><tr><th>Nadador</th><th class="r">Asistió</th><th class="r">No asistió</th><th class="r">Salowis</th><th class="r">Asistencia</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.a.name)}${topS&&r.c.p===topS?' 🏆':''}</td><td class="r">${r.c.p}</td><td class="r">${r.c.f}</td><td class="r"><span class="coin-s" style="display:inline-block">${COIN}</span><b>${r.c.p}</b>${r.c.p===takenG.length&&takenG.length?' <span class="pill ok">pleno</span>':''}</td><td class="r"><b class="${r.pct===null?'na':r.pct>=85?'ok':r.pct>=70?'near':'far'}">${r.pct===null?'—':r.pct+'%'}</b></td></tr>`).join('')}</tbody></table></div></div></div>`;
+ S.amsg='';
+ $('#ap').onclick=()=>nx(-1);$('#an').onclick=()=>nx(1);$('#at').onclick=()=>{S.adate=TODAY;render()};
+ $('#ad').onchange=e=>{if(e.target.value){S.adate=e.target.value;render()}};$('#ag').onchange=e=>{S.agrp=e.target.value;render()};
+ const lock=()=>{document.querySelectorAll('#v .btn').forEach(b=>b.disabled=true);$('#as').textContent='Guardando…'};
+ document.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{const cur=day[b.dataset.a];lock();S.amsg=await saveAtt(d,[b.dataset.a],cur===b.dataset.v?null:b.dataset.v);render()});
+ $('#all').onclick=async()=>{const ids=grp.filter(a=>!day[a.id]).map(a=>a.id);if(!ids.length)return;lock();S.amsg=await saveAtt(d,ids,'p');render()}}
+
+/* ---------- valoraciones ---------- */
+function vVal(a){
+ const list=evals[a.id]||[],coach=S.user.role==='coach';
+ const comps=D.comps.filter(c=>c.start).sort((x,y)=>x.start.localeCompare(y.start));
+ $('#v').innerHTML=`<div class="stack">
+ ${coach?`<form class="card stack" id="ef"><h2>Nueva valoración de competición</h2><div class="grid g2"><label for="ec">Competición<input id="ec" list="cl" required placeholder="Campionat de Catalunya Júnior d'Hivern"><datalist id="cl">${comps.map(c=>`<option value="${esc(c.name)}">`).join('')}</datalist></label><label for="ed2">Fecha<input id="ed2" type="date" value="${TODAY}" required></label></div>
+ <label for="eg">Cómo ha ido<textarea id="eg" required></textarea></label><label for="ep">Aspectos positivos<textarea id="ep"></textarea></label><label for="em">Aspectos a mejorar<textarea id="em"></textarea></label>
+ <div class="row"><button class="btn" type="submit" id="eb">Guardar valoración para ${esc(a.name)}</button><span class="mute" id="es" role="status">${esc(S.emsg||'')}</span></div></form>`:''}
+ <div class="card"><h2>Valoraciones del entrenador</h2>
+ ${list.length?list.map(e=>`<div class="sec" style="padding:12px 0;border-top:1px solid var(--line)"><div class="row"><b class="sp">${esc(e.comp)}</b><span class="mute">${fd(e.date)}</span>${coach?`<button class="btn ghost" data-del="${esc(e.id)}">Borrar</button>`:''}</div><p style="margin:4px 0">${esc(e.general).replace(/\n/g,'<br>')}</p>${e.pos?`<div><span class="pill ok">Positivo</span> ${esc(e.pos).replace(/\n/g,'<br>')}</div>`:''}${e.mej?`<div style="margin-top:6px"><span class="pill near">A mejorar</span> ${esc(e.mej).replace(/\n/g,'<br>')}</div>`:''}</div>`).join(''):'<p class="mute">Todavía no hay valoraciones.</p>'}</div></div>`;
+ S.emsg='';
+ if(coach){const f=$('#ef');f.onsubmit=async e=>{e.preventDefault();$('#eb').disabled=true;$('#es').textContent='Guardando…';
+  try{await saveEval(a.id,{comp:$('#ec').value.trim(),date:$('#ed2').value,general:$('#eg').value.trim(),pos:$('#ep').value.trim(),mej:$('#em').value.trim()});S.emsg='Guardada.';render()}
+  catch(x){$('#es').textContent='No se ha podido guardar: '+x.message;$('#eb').disabled=false}};
+  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{b.disabled=true;b.textContent='Borrando…';try{await delEval(a.id,b.dataset.del)}catch(x){b.textContent='Error';}})}}
+
+/* ---------- arranque ---------- */
+(function(){const t=LS.get('cnsalou_t',null);if(t){TOKEN=t;loadAll()}else loginView()})();
+
+</script>
+<script>
+/* modo app: funciona sin cobertura para abrir y muestra cómo instalarla */
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+(function(){
+ const standalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+ if(standalone||LS.get('cnsalou_noinstall',false))return;
+ const ios=/iphone|ipad|ipod/i.test(navigator.userAgent);let deferred=null;
+ function show(html,btn){const d=document.createElement('div');d.className='install';d.innerHTML=`<img src="icon-192.png" alt="" width="40" height="40" style="border-radius:9px"><p>${html}</p>${btn?'<button class="btn" id="ib">Instalar</button>':''}<button class="btn ghost" id="ix" aria-label="Cerrar">✕</button>`;document.body.appendChild(d);
+  d.querySelector('#ix').onclick=()=>{d.remove();LS.set('cnsalou_noinstall',true)};
+  if(btn)d.querySelector('#ib').onclick=async()=>{d.remove();deferred.prompt();await deferred.userChoice}}
+ window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;show('<b>Instala la app</b> en tu móvil para abrirla como una app más.',true)});
+ if(ios)setTimeout(()=>show('<b>Instala la app:</b> pulsa <b>Compartir</b> <span aria-hidden="true">⬆︎</span> y luego <b>Añadir a pantalla de inicio</b>.',false),1500);
+})();
+</script>
+</body>
+</html>
