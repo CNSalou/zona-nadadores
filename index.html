@@ -93,6 +93,7 @@ td.r,th.r{text-align:right}
 .cd b{font-size:17px}.cd .mute{color:#e3f0f7}
 .dleft{font-size:12px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:1px 8px;margin-left:4px;white-space:nowrap}
 .wk table{width:100%;font-size:15px}.wk td,.wk th{padding:8px 4px}.wk td,.wk th{text-align:center}.wk td:first-child,.wk th:first-child{text-align:left}
+.alist a.nfi{display:flex;justify-content:space-between;gap:8px;text-decoration:none;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink)}.alist a.nfi.new{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 10%,var(--card))}.alist a.nfi>span:last-child{color:var(--accent);font-weight:700;white-space:nowrap}
 .alist{display:flex;flex-direction:column;gap:6px}.alist button{display:flex;justify-content:space-between;gap:8px;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink)}
 .alist button span:last-child{color:var(--mute);font-size:14px;white-space:nowrap}
 .dots{display:inline-flex;gap:3px;vertical-align:middle}.dots i{width:12px;height:12px;border-radius:50%;display:inline-block}
@@ -232,6 +233,28 @@ async function loadFCN(){if(FCN.items||FCN.busy||FCN.err)return;FCN.busy=true;
 /* Último calendario publicado por la FCN y si es más nuevo que el que lleva la app */
 function fcnCal(){const it=(FCN.items||[]).filter(x=>/calendari/i.test(x.title)).sort((a,b)=>b.date.localeCompare(a.date))[0];
  const mine='2026-10-26';return it?{id:it.id,date:it.date,newer:it.date>mine||String(it.id)!=='22616'}:null}
+/* Avisos de normativas para el entrenador: novedades FCN de Natació (sección 2) y Màsters (sección 7) */
+const NF={items:null,err:false,busy:false};
+async function loadNormFeed(){if(NF.items||NF.busy||NF.err)return;NF.busy=true;
+ try{let c=null;try{c=JSON.parse(localStorage.getItem('cnsalou_nf')||'null')}catch(e){}
+  if(c&&Date.now()-c.t<3*36e5)NF.items=c.items;else{const base=FCN_FEED.replace(/\/7\/20$/,'');const all=[];
+   for(const [sec,lab] of [[2,'Natació'],[7,'Màsters']]){const t=await fetch(base+'/'+sec+'/40',{cache:'no-store'}).then(r=>r.text());
+    const j=JSON.parse(decodeURIComponent(escape(atob(t.trim()))));(j.messageData||[]).forEach(x=>{if(x.docId&&/normativa|calendari|reglament/i.test(x.title||'')&&String(x.datePublished||'')>='2026-08-01')all.push({id:String(x.docId),sec:lab,title:String(x.title).trim(),date:String(x.datePublished).slice(0,10),ts:String(x.datePublished)})})}
+   const seen={};NF.items=all.sort((a,b)=>b.ts.localeCompare(a.ts)).filter(x=>{const k=x.id+'|'+x.ts;return seen[k]?false:(seen[k]=1)});
+   try{localStorage.setItem('cnsalou_nf',JSON.stringify({t:Date.now(),items:NF.items}))}catch(e){}}}
+ catch(e){NF.err=true}
+ NF.busy=false;if(S.tab==='inicio'&&S.user&&S.user.role==='coach'){const w=$('#nf');if(w)normCard()}}
+function normCard(){const el=$('#nf');if(!el)return;loadNormFeed();
+ if(!NF.items){el.innerHTML=NF.err?'':'<div class="card"><p class="mute" style="margin:0">Consultando novedades de normativas de la FCN…</p></div>';return}
+ let last='';try{last=localStorage.getItem('cnsalou_nf_seen')||''}catch(e){}
+ const recent=NF.items.filter(x=>(new Date(TODAY)-new Date(x.date))/864e5<=21).slice(0,12),nw=recent.filter(x=>x.ts>last);
+ const codeOf=t=>{const m=t.match(/Normativa\s+(MA\s*[A-Z]{1,2}-\d+|\d+)/i);return m?(/^\d/.test(m[1])?'N'+m[1].padStart(2,'0'):m[1]):(/calendari/i.test(t)?'Calendario':'')};
+ const uses=c=>{if(!/^N\d+$/.test(c))return '';const x=D.comps.filter(k=>k.norm===c);return x.length?x.map(k=>k.name).join(', '):''};
+ const nice=t=>t.replace(/^(NOVA\s+)?ACT\.\s*/i,'').replace(/^Normatives?\s+MS.*?\d{2}-\d{2}\s*-\s*/i,'').replace(/^(NOVA\s+)?ACT\.\s*/i,'');
+ el.innerHTML=`<div class="card stack" ${nw.length?'style="border:2px solid var(--warn)"':''}><div class="row"><h3 class="sp">📢 Normativas FCN${nw.length?` <span class="dleft" style="color:var(--warn);border-color:var(--warn)">${nw.length} ${nw.length===1?'novedad':'novedades'}</span>`:''}</h3>${nw.length?'<button class="btn ghost" id="nfok">Marcar como vistas</button>':''}</div>
+  ${recent.length?`<div class="alist">${recent.map(x=>{const c=codeOf(x.title),u=uses(c),isNew=x.ts>last;return `<a class="nfi${isNew?' new':''}" href="${fcnFile(x.id)}" target="_blank" rel="noopener"><span><b>${isNew?'🆕 ':''}${esc(nice(x.title))}</b><br><span class="mute">${x.sec} · ${/^NOVA|nova/i.test(x.title)?'publicada':'actualizada'} el ${fd(x.date)}${u?' · afecta a: '+esc(u):''}</span></span><span>PDF ›</span></a>`}).join('')}</div>`:'<p class="mute" style="margin:0">Sin cambios en las normativas en las últimas 3 semanas.</p>'}
+  <p class="mute" style="margin:0">Novedades de las secciones Natació y Màsters de la web de la FCN (últimas 3 semanas).</p></div>`;
+ const b=$('#nfok');if(b)b.onclick=()=>{try{localStorage.setItem('cnsalou_nf_seen',NF.items[0].ts)}catch(e){}normCard()}}
 const NORMS={N09:22519,N10:22520,N20:22530,N21:22531,N22:22532,N24:22534,N25:22535,N26:22536,N27:22795,N28:22796};
 const STY={L:0,E:1,B:2,M:3,S:4},STYN={L:'Libre',E:'Espalda',B:'Braza',M:'Mariposa',S:'Estilos'};
 const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -396,7 +419,7 @@ function vHome(a){
  const coach=S.user.role==='coach',q=quoteOfWeek(),sal=coach?null:salowis(a,ym(new Date()));
  $('#v').innerHTML=`<div class="stack"><div class="hello"><h2>¡Hola, ${coach?'Entrenador/a':esc(a.name.split(' ')[0])}!</h2></div>
  <div class="card quote"><blockquote>«${esc(q[0])}»</blockquote><div class="mute">— <b>${esc(q[1])}</b>, ${esc(q[2])} · Frase de la semana</div></div>
- <div class="menu">${sections(coach).filter(t=>t[0]!=='inicio').map(t=>`<button class="mbtn" data-go="${t[0]}"><span class="ic" aria-hidden="true">${t[2]}</span><span><b>${t[1]}</b><small>${t[0]==='ent'&&sal?`🐙 ${sal.got} pulpines este mes`:t[3]}</small></span></button>`).join('')}</div>${coach?'<div id="wk"></div>':''}</div>`;
+ <div class="menu">${sections(coach).filter(t=>t[0]!=='inicio').map(t=>`<button class="mbtn" data-go="${t[0]}"><span class="ic" aria-hidden="true">${t[2]}</span><span><b>${t[1]}</b><small>${t[0]==='ent'&&sal?`🐙 ${sal.got} pulpines este mes`:t[3]}</small></span></button>`).join('')}</div>${coach?'<div id="wk"></div>':''}</div>`;if(coach){$('.menu').insertAdjacentHTML('beforebegin','<div id="nf"></div>');normCard()}
  document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.go;render()});if(coach)weekCard()}
 /* Resumen semanal del entrenador: asistencia y valoraciones por grupo, pendientes y alertas de sensaciones */
 function weekDays(off){const t=new Date(TODAY+'T12:00:00');t.setDate(t.getDate()-((t.getDay()+6)%7)+7*off);return Array.from({length:7},(_,i)=>{const d=new Date(t);d.setDate(t.getDate()+i);return iso(d)})}
