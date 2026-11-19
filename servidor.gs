@@ -210,7 +210,7 @@ function getData(token) {
     evals: { [me.id]: st.evals[me.id] || [] },
     train: { [me.id]: st.train[me.id] || {} },
     att: groupAtt(st.att, me, D.athletes),
-    rank: teamRank(st.att, D.athletes, me.id)
+    rank: teamRank(st.att, st.train, D.athletes, me.id)
   });
 }
 
@@ -227,15 +227,17 @@ function groupAtt(att, me, athletes) {
   return out;
 }
 
-// Posición de un nadador en el equipo por Salowis de cada mes (empates comparten posición: 1, 1, 3…)
-function teamRank(att, athletes, id) {
+// Posición de un nadador en el equipo por Salowis de cada mes (empates comparten posición: 1, 1, 3…).
+// Salowi = «Asistió» en la lista del entrenador + entreno valorado por el nadador (dureza, sensaciones y comentario).
+function teamRank(att, train, athletes, id) {
+  const valid = (k, d) => { const v = (train[k] || {})[d]; return !!(v && v.r > 0 && v.s > 0 && String(v.n || '').trim()); };
   const today = Utilities.formatDate(new Date(), CFG.ZONA, 'yyyy-MM-dd');
   const months = {};
   Object.keys(att).forEach(d => {
     const w = new Date(d + 'T12:00:00Z').getUTCDay();
     if (w < 1 || w > 4 || d > today) return;
     const mk = d.slice(0, 7), c = months[mk] || (months[mk] = {});
-    Object.keys(att[d]).forEach(k => { if (att[d][k] === 'p') c[k] = (c[k] || 0) + 1; });
+    Object.keys(att[d]).forEach(k => { if (att[d][k] === 'p' && valid(k, d)) c[k] = (c[k] || 0) + 1; });
   });
   const out = {};
   Object.keys(months).forEach(mk => {

@@ -136,6 +136,12 @@ a{color:var(--accent)}
 .rank{display:flex;gap:14px;align-items:center;margin-top:12px;padding:10px 12px;background:var(--soft);border-radius:10px}
 .rank .pos{font-family:var(--fd);font-size:38px;font-weight:700;line-height:1;color:var(--accent);min-width:64px;text-align:center}
 .rank .pos.lead{color:#b8860b}
+.day.pend{background:#fde7a8;color:#5c4400;border-color:#e9c96b}.sw.pend{background:#fde7a8}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:-1px;box-shadow:inset 0 0 0 1px #0003}
+.cmpt td,.cmpt th{padding:6px 4px}.cmpt .c{text-align:center}
+.cmp{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:6px;font-size:13px;font-weight:700;border:1px solid var(--line);color:var(--mute)}
+.cmp.sal{background:#2e9d4f;border-color:#2e9d4f;color:#fff}.cmp.onlyc,.cmp.onlya{background:#fde7a8;border-color:#e9c96b;color:#5c4400}.cmp.abs{background:var(--line)}
+.day.nolist{background:repeating-linear-gradient(45deg,var(--card),var(--card) 4px,var(--soft) 4px,var(--soft) 8px)}.sw.nolist{background:repeating-linear-gradient(45deg,#fff,#fff 2px,#cfe3ef 2px,#cfe3ef 4px)}
 /* app instalada: respetar la muesca del iPhone */
 body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
 .install{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:0 6px 24px #0003;display:flex;gap:10px;align-items:center;z-index:9}
@@ -196,13 +202,16 @@ const COIN=`<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" 
 const isTrainDay=d=>{const w=new Date(d+'T12:00:00').getDay();return w>=1&&w<=4};
 /* Salowis: 1 por cada entrenamiento (L-J) en el que el entrenador marca «Asistió». Máximo = entrenamientos con lista del grupo.
    Para un nadador, el servidor marca con _g los días en que su grupo tuvo lista. */
-function salowis(a,mk){const all=attDays(mk),grp=new Set(D.athletes.filter(x=>x.cat===a.cat).map(x=>x.id));grp.add('_g');let got=0,max=0;
- Object.keys(all).forEach(d=>{if(!isTrainDay(d)||d>TODAY)return;const day=all[d];if(!Object.keys(day).some(k=>grp.has(k)))return;max++;if(day[a.id]==='p')got++});return {got,max}}
+/* Un Salowi = el entrenador marca «Asistió» Y el nadador ha registrado el entreno completo (dureza, sensaciones y comentario). */
+const validLog=v=>!!(v&&v.r>0&&v.s>0&&String(v.n||'').trim());
+const isSalowi=(aid,d)=>!!(att[d]&&att[d][aid]==='p'&&validLog((train[aid]||{})[d]));
+function salowis(a,mk){const all=attDays(mk),grp=new Set(D.athletes.filter(x=>x.cat===a.cat).map(x=>x.id));grp.add('_g');let got=0,max=0,pend=0;
+ Object.keys(all).forEach(d=>{if(!isTrainDay(d)||d>TODAY)return;const day=all[d];if(!Object.keys(day).some(k=>grp.has(k)))return;max++;if(isSalowi(a.id,d))got++;else if(day[a.id]==='p')pend++});return {got,max,pend}}
 function salSeason(a){const ms=new Set(Object.keys(att).map(d=>d.slice(0,7)));let t=0;ms.forEach(mk=>t+=salowis(a,mk).got);return t}
 /* Posición en el equipo por Salowis del mes. Nadador: la calcula el servidor; entrenador: se calcula aquí con la lista completa. */
 function teamPos(a,mk){
  if(D.rank)return D.rank[mk]||null;
- const c={};Object.keys(att).forEach(d=>{if(!d.startsWith(mk)||!isTrainDay(d)||d>TODAY)return;Object.keys(att[d]).forEach(k=>{if(att[d][k]==='p')c[k]=(c[k]||0)+1})});
+ const c={};Object.keys(att).forEach(d=>{if(!d.startsWith(mk)||!isTrainDay(d)||d>TODAY)return;Object.keys(att[d]).forEach(k=>{if(isSalowi(k,d))c[k]=(c[k]||0)+1})});
  if(!Object.keys(c).length)return null;
  const mine=c[a.id]||0,vals=D.athletes.map(x=>c[x.id]||0);
  return {pos:1+vals.filter(v=>v>mine).length,tie:vals.filter(v=>v===mine).length-1,n:D.athletes.length,got:mine}}
@@ -210,10 +219,10 @@ function posHtml(a,mk,me){const p=teamPos(a,mk);if(!p)return '';
  const lead=p.pos===1&&p.got>0,who=me?'tú':'este nadador';
  const tie=p.tie>0?`Empate en ${p.pos}.ª posición: ${who} y ${p.tie} ${p.tie===1?'compañero/a más':'compañeros/as más'}.`:(lead?(me?'¡Vas en 1.ª posición del equipo!':'¡Va en 1.ª posición del equipo!'):'');
  return `<div class="rank"><div class="pos${lead?' lead':''}">${lead?'🏆 ':''}${p.pos}.ª</div><div><div><b>Posición en el equipo</b> <span class="mute">de ${p.n} nadadores</span></div>${tie?`<div class="${lead?'ok':'mute'}" style="font-weight:600">${tie}</div>`:''}</div></div>`}
-function salCard(a){const mk=ym(new Date()),{got,max}=salowis(a,mk),tot=salSeason(a),me=S.user.role==='athlete';
- const msg=max===0?'Cuando el entrenador pase lista empezarás a sumar salowis.':(got===max?`<b class="ok">¡Pleno! ${me?'No te has perdido':'No se ha perdido'} ningún entrenamiento este mes.</b> `:`${me?'Has venido':'Ha venido'} a ${got} de ${max} entrenamientos este mes. `)+'¡A final de mes, quien tenga más salowis gana!';
- return `<div class="card"><h3>Salowis de ${MESES[+mk.slice(5)-1]}</h3><div class="sal" style="margin-top:8px"><span class="coin">${COIN}</span><div><div class="big">${got}<span class="mute" style="font-size:20px;font-weight:600"> / ${max}</span></div><div class="mute">1 salowi por cada entrenamiento al que ${me?'vienes':'viene'} · ${tot} en toda la temporada</div></div></div>${posHtml(a,mk,me)}<p style="margin:10px 0 0">${msg}</p></div>`}
-const SAL_INFO=()=>`<div class="card salinfo"><span class="coin">${COIN}</span><div><h3>¿Qué son los Salowis?</h3><p>Son puntos que se consiguen por cada entreno al que asistes. ¡A final de mes, el nadador o nadadora con más Salowis será el ganador o ganadora!</p></div></div>`;
+function salCard(a){const mk=ym(new Date()),{got,max,pend}=salowis(a,mk),tot=salSeason(a),me=S.user.role==='athlete';
+ const msg=max===0?'Cuando el entrenador pase lista empezarás a sumar salowis.':(got===max?`<b class="ok">¡Pleno! ${me?'Tienes':'Tiene'} el Salowi de todos los entrenos del mes.</b> `:`${got} de ${max} entrenos con Salowi este mes. `)+'¡A final de mes, quien tenga más salowis gana!';
+ return `<div class="card"><h3>Salowis de ${MESES[+mk.slice(5)-1]}</h3><div class="sal" style="margin-top:8px"><span class="coin">${COIN}</span><div><div class="big">${got}<span class="mute" style="font-size:20px;font-weight:600"> / ${max}</span></div><div class="mute">1 salowi por entreno con asistencia y valoración · ${tot} en toda la temporada</div></div></div>${posHtml(a,mk,me)}${pend?`<div class="note" style="margin-top:10px">⚠️ ${pend} ${pend===1?'entreno':'entrenos'} con asistencia del entrenador ${me?'que aún no has valorado':'sin valorar por el nadador'}. ${me?'Valóralos en <b>Entrenamiento</b> (dureza, sensaciones y comentario) para sumar el Salowi.':''}</div>`:''}<p style="margin:10px 0 0">${msg}</p></div>`}
+const SAL_INFO=()=>`<div class="card salinfo"><span class="coin">${COIN}</span><div><h3>¿Qué son los Salowis?</h3><p>Son puntos que se consiguen por cada entreno al que asistes. ¡A final de mes, el nadador o nadadora con más Salowis será el ganador o ganadora!</p><p class="mute" style="font-size:14px">Para que cuente, el entreno tiene que estar en la lista de asistencia del entrenador <b>y</b> valorado ${S.user&&S.user.role==='coach'?'por el nadador':'por ti'} en <b>Entrenamiento</b>: dureza, sensaciones y comentario.</p></div></div>`;
 function hello(a){if(S.user.role!=='athlete')return '';const q=QUOTES[new Date().getMonth()];
  return `<div class="hello"><h2>¡Hola, ${esc(a.name.split(' ')[0])}!</h2></div>
  <div class="card quote"><blockquote>«${esc(q[0])}»</blockquote><div class="mute">— <b>${esc(q[1])}</b>, ${esc(q[2])} · Frase de ${MESES[new Date().getMonth()]}</div></div>`}
@@ -296,12 +305,12 @@ function vAsisMe(a){
  const grp=new Set(D.athletes.filter(x=>x.cat===a.cat).map(x=>x.id));grp.add('_g');
  let cells='';for(let i=0;i<off;i++)cells+='<div class="day e"></div>';
  for(let d=1;d<=n;d++){const k=mk+'-'+String(d).padStart(2,'0'),day=all[k]||{},list=Object.keys(day).some(x=>grp.has(x)),v=day[a.id];
-  const cls=v==='p'?'yes':(list?'no':'');cells+=`<div class="day ${cls} ${isTrainDay(k)?'sch':'off'} ${k===TODAY?'today':''}" aria-label="Día ${d}${v==='p'?', asististe':list?', no asististe':''}">${d}${v==='p'?'<small>🪙</small>':list?'<small>✕</small>':''}</div>`}
+  const sal=isSalowi(a.id,k),cls=sal?'yes':v==='p'?'pend':v==='f'?'no':(list?'nolist':'');cells+=`<div class="day ${cls} ${isTrainDay(k)?'sch':'off'} ${k===TODAY?'today':''}" aria-label="Día ${d}${sal?', salowi':v==='p'?', asististe pero falta valorarlo':v==='f'?', no asististe':list?', no estás en la lista':''}">${d}${sal?'<small>🪙</small>':v==='p'?'<small>!</small>':v==='f'?'<small>✕</small>':list?'<small>?</small>':''}</div>`}
  const {got,max}=salowis(a,mk);
  $('#v').innerHTML=`<div class="stack">${SAL_INFO()}${salCard(a)}
  <div class="card"><div class="row"><button class="btn ghost" id="am" aria-label="Mes anterior">‹</button><h3 class="sp" style="text-align:center">${MESES[m-1]} ${y}</h3><button class="btn ghost" id="an2" aria-label="Mes siguiente">›</button></div>
  <div class="cal" style="margin-top:10px">${['L','M','X','J','V','S','D'].map(x=>`<div class="h">${x}</div>`).join('')}${cells}</div>
- <div class="row mute" style="margin-top:10px;font-size:14px"><span><span class="sw yes"></span> Asististe (+1 salowi)</span><span><span class="sw no"></span> No asististe</span><span>Según la lista del entrenador · ${got} de ${max} en ${MESES[m-1]}</span></div></div></div>`;
+ <div class="row mute" style="margin-top:10px;font-size:14px"><span><span class="sw yes"></span> Salowi</span><span><span class="sw pend"></span> Asististe, falta valorarlo</span><span><span class="sw no"></span> No asististe</span><span><span class="sw nolist"></span> No estás en la lista ese día</span><span>${got} de ${max} en ${MESES[m-1]}</span></div></div></div>`;
  $('#am').onclick=()=>{S.amonth=ym(new Date(y,m-2,1));render()};$('#an2').onclick=()=>{S.amonth=ym(new Date(y,m,1));render()}}
 function best(a){return a.marks.map(m=>({...m,c:m.s+corr(m)})).sort((x,y)=>evSort(x.ev,y.ev)||x.pool-y.pool)}
 function stat(m){if(m.ok===undefined)return['na','Sin mínima'];if(m.ok)return['ok','Conseguida'];return m.pct<=2?['near','Casi ('+m.pct.toFixed(1).replace('.',',')+'%)']:['far','+'+m.pct.toFixed(1).replace('.',',')+'%']}
@@ -433,17 +442,27 @@ function vAsis(){
  const grp=D.athletes.filter(a=>a.cat===S.agrp),taken=Object.keys(all).filter(x=>Object.keys(all[x]).length&&(()=>{const w=new Date(x+'T12:00:00').getDay();return w>=1&&w<=4})()).sort();
  const ids=new Set(grp.map(a=>a.id)),takenG=taken.filter(x=>x<=TODAY&&Object.keys(all[x]).some(k=>ids.has(k)));
  const rows=grp.map(a=>{const c={p:0,f:0};takenG.forEach(x=>{const v=all[x][a.id];if(v in c)c[v]++});const den=c.p+c.f;return {a,c,pct:den?Math.round(c.p/den*100):null}});
- const topS=Math.max(0,...rows.map(r=>r.c.p));
+ rows.forEach(r=>{r.log=takenG.filter(x=>validLog((train[r.a.id]||{})[x])).length;r.sal=takenG.filter(x=>isSalowi(r.a.id,x)).length});
+ const topS=Math.max(0,...rows.map(r=>r.sal));
+ const pos=r=>teamPos(r.a,mk);
+ const logBadge=(aid,x)=>{const v=(train[aid]||{})[x];if(!v)return '<span class="pill na">Sin registro</span>';if(!v.r)return '<span class="pill far">Dice que no vino</span>';
+  return `<span class="pill ${validLog(v)?'ok':'near'}" title="${esc(v.n||'')}">Dureza ${v.r} · <span class="dot" style="background:${(FEEL[v.s]||[ '#999'])[0]}"></span>${String(v.n||'').trim()?' · 💬':' · sin comentario'}</span>`};
+ const cell=(aid,x)=>{const c=all[x]&&all[x][aid],v=(train[aid]||{})[x],ok=validLog(v);
+  if(c==='p'&&ok)return ['sal','🪙','Salowi: asistencia y valoración'];if(c==='p')return ['onlyc','E','Solo el entrenador: falta su valoración'];
+  if(ok)return ['onlya','N','Solo el nadador: no está como «Asistió» en la lista'];if(c==='f')return ['abs','✕','No asistió'];return ['','','']};
  const cnt={p:grp.filter(a=>day[a.id]==='p').length,f:grp.filter(a=>day[a.id]==='f').length};
  const nx=n=>{const x=new Date(d+'T12:00:00');x.setDate(x.getDate()+n);S.adate=iso(x);render()};
  $('#v').innerHTML=`<div class="stack">${SAL_INFO()}<div class="card stack"><h2>Control de asistencia</h2>
  <div class="row"><button class="btn ghost" id="ap" aria-label="Día anterior">‹</button><label for="ad" class="row" style="flex-direction:row">Día<input id="ad" type="date" value="${d}" style="width:auto"></label><button class="btn ghost" id="an" aria-label="Día siguiente">›</button><button class="btn ghost" id="at">Hoy</button><span class="sp"></span>
  <label for="ag" class="row" style="flex-direction:row">Grupo<select id="ag" style="width:auto">${[['junior','Junior'],['infantil','Infantil'],['alevin','Alevín']].map(g=>`<option value="${g[0]}" ${S.agrp===g[0]?'selected':''}>${g[1]}</option>`).join('')}</select></label></div>
  <div class="row"><b>${dn} ${fd(d)}</b>${sch?'':'<span class="pill near">No es día de entrenamiento</span>'}<span class="mute">${cnt.p} han asistido · ${cnt.f} no han asistido · ${grp.length-cnt.p-cnt.f} sin marcar</span><span class="sp"></span><button class="btn ghost" id="all">Marcar que han asistido todos</button></div>
- ${grp.map(a=>`<div class="row" style="border-top:1px solid var(--line);padding-top:8px"><b class="sp" style="min-width:160px">${esc(a.name)}</b>${[['p','Asistió'],['f','No asistió']].map(o=>`<button class="btn ghost" data-a="${esc(a.id)}" data-v="${o[0]}" aria-pressed="${day[a.id]===o[0]}" style="${day[a.id]===o[0]?'background:var(--'+(o[0]==='p'?'good':'bad')+');color:#06202f;border-color:transparent':''}">${o[1]}</button>`).join('')}</div>`).join('')}
+ ${grp.map(a=>`<div class="row" style="border-top:1px solid var(--line);padding-top:8px"><span class="sp" style="min-width:160px"><b>${esc(a.name)}</b><br><span class="mute" style="font-size:13px">Su registro: </span>${logBadge(a.id,d)}</span>${[['p','Asistió'],['f','No asistió']].map(o=>`<button class="btn ghost" data-a="${esc(a.id)}" data-v="${o[0]}" aria-pressed="${day[a.id]===o[0]}" style="${day[a.id]===o[0]?'background:var(--'+(o[0]==='p'?'good':'bad')+');color:#06202f;border-color:transparent':''}">${o[1]}</button>`).join('')}</div>`).join('')}
  <div class="mute" id="as" role="status">${esc(S.amsg||'')}</div></div>
- <div class="card"><h3>Resumen de ${MESES[+mk.slice(5)-1]} (${S.agrp==='alevin'?'Alevín':S.agrp[0].toUpperCase()+S.agrp.slice(1)})</h3><p class="mute">${takenG.length} entrenamientos con lista. Cada asistencia suma 1 salowi. A final de mes gana quien tenga más salowis. 🏆 = va en cabeza.</p>
- <div class="tw"><table><thead><tr><th>Nadador</th><th class="r">Asistió</th><th class="r">No asistió</th><th class="r">Salowis</th><th class="r">Asistencia</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.a.name)}${topS&&r.c.p===topS?' 🏆':''}</td><td class="r">${r.c.p}</td><td class="r">${r.c.f}</td><td class="r"><span class="coin-s" style="display:inline-block">${COIN}</span><b>${r.c.p}</b>${r.c.p===takenG.length&&takenG.length?' <span class="pill ok">pleno</span>':''}</td><td class="r"><b class="${r.pct===null?'na':r.pct>=85?'ok':r.pct>=70?'near':'far'}">${r.pct===null?'—':r.pct+'%'}</b></td></tr>`).join('')}</tbody></table></div></div></div>`;
+ <div class="card"><h3>Salowis de ${MESES[+mk.slice(5)-1]} (${S.agrp==='alevin'?'Alevín':S.agrp[0].toUpperCase()+S.agrp.slice(1)})</h3><p class="mute">${takenG.length} entrenamientos con lista. Salowi = «Asistió» en vuestra lista + entreno valorado por el nadador (dureza, sensaciones y comentario). La posición es en todo el equipo. 🏆 = va en cabeza.</p>
+ <div class="tw"><table><thead><tr><th>Nadador</th><th class="r">Asistió (lista)</th><th class="r">Valorados por él/ella</th><th class="r">Salowis</th><th class="r">Posición</th><th class="r">Asistencia</th></tr></thead><tbody>${rows.map(r=>{const p=pos(r);return `<tr><td>${esc(r.a.name)}${topS&&r.sal===topS?' 🏆':''}</td><td class="r">${r.c.p}</td><td class="r">${r.log}${r.log!==r.c.p?' <span class="pill near" title="No coincide con la lista">≠</span>':''}</td><td class="r"><span class="coin-s" style="display:inline-block">${COIN}</span><b>${r.sal}</b></td><td class="r">${p&&r.sal?p.pos+'.ª'+(p.tie?' (empate)':''):'—'}</td><td class="r"><b class="${r.pct===null?'na':r.pct>=85?'ok':r.pct>=70?'near':'far'}">${r.pct===null?'—':r.pct+'%'}</b></td></tr>`}).join('')}</tbody></table></div></div>
+ <div class="card"><h3>Registro del mes: vuestra lista y lo que apunta cada nadador</h3>
+ <div class="row mute" style="font-size:13px;margin:6px 0 10px"><span><span class="cmp sal">🪙</span> Coinciden (Salowi)</span><span><span class="cmp onlyc">E</span> Solo en vuestra lista (falta su valoración)</span><span><span class="cmp onlya">N</span> Solo lo apunta el nadador</span><span><span class="cmp abs">✕</span> No asistió</span></div>
+ ${takenG.length?`<div class="tw"><table class="cmpt"><thead><tr><th>Nadador</th>${takenG.map(x=>`<th class="c">${['D','L','M','X','J','V','S'][new Date(x+'T12:00:00').getDay()]}<br>${+x.slice(8)}</th>`).join('')}</tr></thead><tbody>${grp.map(a=>`<tr><td>${esc(a.name)}</td>${takenG.map(x=>{const c=cell(a.id,x);return `<td class="c"><span class="cmp ${c[0]}" title="${c[2]}">${c[1]}</span></td>`}).join('')}</tr>`).join('')}</tbody></table></div>`:'<p class="mute">Todavía no hay entrenamientos con lista este mes.</p>'}</div></div>`;
  S.amsg='';
  $('#ap').onclick=()=>nx(-1);$('#an').onclick=()=>nx(1);$('#at').onclick=()=>{S.adate=TODAY;render()};
  $('#ad').onchange=e=>{if(e.target.value){S.adate=e.target.value;render()}};$('#ag').onchange=e=>{S.agrp=e.target.value;render()};
