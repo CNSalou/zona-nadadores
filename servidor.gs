@@ -209,7 +209,8 @@ function getData(token) {
     athletes: [me],
     evals: { [me.id]: st.evals[me.id] || [] },
     train: { [me.id]: st.train[me.id] || {} },
-    att: groupAtt(st.att, me, D.athletes)
+    att: groupAtt(st.att, me, D.athletes),
+    rank: teamRank(st.att, D.athletes, me.id)
   });
 }
 
@@ -222,6 +223,24 @@ function groupAtt(att, me, athletes) {
     if (!Object.keys(day).some(k => grp[k])) return;
     out[d] = { _g: 1 };
     if (day[me.id]) out[d][me.id] = day[me.id];
+  });
+  return out;
+}
+
+// Posición de un nadador en el equipo por Salowis de cada mes (empates comparten posición: 1, 1, 3…)
+function teamRank(att, athletes, id) {
+  const today = Utilities.formatDate(new Date(), CFG.ZONA, 'yyyy-MM-dd');
+  const months = {};
+  Object.keys(att).forEach(d => {
+    const w = new Date(d + 'T12:00:00Z').getUTCDay();
+    if (w < 1 || w > 4 || d > today) return;
+    const mk = d.slice(0, 7), c = months[mk] || (months[mk] = {});
+    Object.keys(att[d]).forEach(k => { if (att[d][k] === 'p') c[k] = (c[k] || 0) + 1; });
+  });
+  const out = {};
+  Object.keys(months).forEach(mk => {
+    const c = months[mk], mine = c[id] || 0, vals = athletes.map(a => c[a.id] || 0);
+    out[mk] = { pos: 1 + vals.filter(v => v > mine).length, tie: vals.filter(v => v === mine).length - 1, n: athletes.length, got: mine };
   });
   return out;
 }
