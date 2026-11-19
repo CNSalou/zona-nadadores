@@ -345,6 +345,8 @@ function vAsisMe(a){
  <div class="cal" style="margin-top:10px">${['L','M','X','J','V','S','D'].map(x=>`<div class="h">${x}</div>`).join('')}${cells}</div>
  <div class="row mute" style="margin-top:10px;font-size:14px"><span><span class="sw yes"></span> Salowi</span><span><span class="sw pend"></span> Asististe, falta valorarlo</span><span><span class="sw no"></span> No asististe</span><span><span class="sw nolist"></span> No estás en la lista ese día</span><span>${got} de ${max} en ${MESES[m-1]}</span></div></div></div>`;
  $('#am').onclick=()=>{S.amonth=ym(new Date(y,m-2,1));render()};$('#an2').onclick=()=>{S.amonth=ym(new Date(y,m,1));render()}}
+/* Las mínimas son las del Campeonato de Catalunya de invierno de su categoría (N10 júnior, N09 infantil) */
+function minComp(a){const n=a.cat==='junior'?'N10':'N09',c=D.comps.find(x=>x.norm===n);return c?c.name:(a.cat==='junior'?"Campionat de Catalunya Júnior d'Hivern":"Campionat de Catalunya Infantil d'Hivern")}
 function best(a){return a.marks.map(m=>({...m,c:m.s+corr(m)})).sort((x,y)=>evSort(x.ev,y.ev)||x.pool-y.pool)}
 function stat(m){if(m.ok===undefined)return['na','Sin mínima'];if(m.ok)return['ok','Conseguida'];return m.pct<=2?['near','Casi ('+m.pct.toFixed(1).replace('.',',')+'%)']:['far','+'+m.pct.toFixed(1).replace('.',',')+'%']}
 function nextComps(a){return D.comps.filter(c=>c.start&&c.end>=TODAY&&relevant(c,a)).sort((x,y)=>x.start.localeCompare(y.start))}
@@ -356,14 +358,14 @@ function vRes(a){
  const top=b.filter(m=>m.pts).sort((x,y)=>y.pts-x.pts).slice(0,3);
  $('#v').innerHTML=`<div class="stack"><div class="grid g4">
  <div class="card tile"><div class="n">${b.length}</div><div class="l">marcas registradas</div></div>
- ${a.cat!=='alevin'?`<div class="card tile"><div class="n">${ok.length}</div><div class="l">mínimas conseguidas de ${withMin.length}</div></div><div class="card tile"><div class="n">${near.length}</div><div class="l">a menos del 2%</div></div>`:`<div class="card tile"><div class="n">—</div><div class="l">alevín: sin mínimas</div></div>`}
+ ${a.cat!=='alevin'?`<div class="card tile"><div class="n">${ok.length}</div><div class="l">mínimas del ${esc(minComp(a))} conseguidas de ${withMin.length}</div></div><div class="card tile"><div class="n">${near.length}</div><div class="l">a menos del 2%</div></div>`:`<div class="card tile"><div class="n">—</div><div class="l">alevín: sin mínimas</div></div>`}
  <div class="card tile"><div class="n">${(()=>{const x=salowis(a,ym(new Date()));return x.max?Math.round(x.got/x.max*100)+'%':'—'})()}</div><div class="l">asistencia este mes (lista del entrenador)</div></div>
  <div class="card tile"><div class="n">${top[0]?top[0].pts:'—'}</div><div class="l">mejor puntuación World Aquatics</div></div></div>
  <div class="grid g2">
  <div class="card"><h3>Próxima competición</h3>${nx?`<p><b>${esc(nx.name)}</b><br><span class="mute">${fd(nx.start)} – ${fd(nx.end)} · ${esc(nx.venue||'')}</span></p><p class="mute">Inscripción: ${fd(nx.iopen)} a ${fd(nx.iclose)}</p>`:'<p class="mute">Sin competiciones pendientes.</p>'}</div>
  <div class="card"><h3>Última valoración del entrenador</h3>${ls?`<p><b>${esc(ls.comp)}</b> · ${fd(ls.date)}</p><p>${esc(ls.general)}</p>`:'<p class="mute">Todavía no hay valoraciones.</p>'}</div></div>
- ${top.length?`<div class="card"><h3>Mejores pruebas por puntos</h3>${top.map(m=>`<div class="ev"><b>${evName(m.ev)}</b><div><div class="bar"><i style="width:${Math.min(100,m.pts/10)}%"></i></div></div><div>${fmt(m.s)} · <b>${m.pts}</b> pts</div></div>`).join('')}</div>`:''}
- ${near.length?`<div class="card"><h3>Mínimas al alcance</h3>${near.map(m=>`<div class="ev"><b>${evName(m.ev)}</b><span class="mute">${m.pool} m</span><div>${fmt(m.c)} → ${m.min} <span class="pill near">+${m.gap.toFixed(2).replace('.',',')} s</span></div></div>`).join('')}</div>`:''}
+ ${top.length?`<div class="card"><h3>Mejores pruebas por puntos</h3>${top.map(m=>`<div class="ev"><b>${evName(m.ev)}</b><div><div class="bar"><i style="width:${Math.min(100,m.pts/10)}%"></i></div></div><div>${fmt(m.s)} · piscina ${m.pool} m · <b>${m.pts}</b> pts</div></div>`).join('')}</div>`:''}
+ ${near.length?`<div class="card"><h3>Mínimas al alcance</h3><p class="mute" style="margin:0">Mínimas para el ${esc(minComp(a))}.</p>${near.map(m=>`<div class="ev"><b>${evName(m.ev)}</b><span class="mute">${m.pool} m</span><div>${fmt(m.c)} → ${m.min} <span class="pill near">+${m.gap.toFixed(2).replace('.',',')} s</span></div></div>`).join('')}</div>`:''}
  </div>`}
 function vMar(a){
  const b=best(a);
@@ -372,7 +374,7 @@ function vMar(a){
 function vMin(a){
  if(a.cat==='alevin'){$('#v').innerHTML='<div class="card"><h2>Mínimas</h2><p>En categoría alevín no hay tiempos mínimos. Las pruebas se distribuyen por ligas y jornadas; consulta el calendario.</p></div>';return}
  const b=best(a).filter(m=>m.ok!==undefined);
- $('#v').innerHTML=`<div class="card"><h2>Marcas frente a mínimas</h2><p class="mute">La barra muestra lo cerca que está tu marca corregida de la mínima de Cataluña (año ${a.year}).</p>
+ $('#v').innerHTML=`<div class="card"><h2>Mínimas para el ${esc(minComp(a))}</h2><p class="mute">La barra muestra lo cerca que está ${S.user.role==='coach'?'su':'tu'} marca corregida de la mínima del ${esc(minComp(a))} (año ${a.year}).</p>
  ${b.map(m=>{const[k,t]=stat(m);const p=m.ok?100:Math.max(4,100-m.pct*4);return `<div class="ev"><b>${evName(m.ev)}</b><div><div class="bar ${k}"><i style="width:${p}%"></i></div><div class="mute">${m.pool} m · ${fd(m.date)}</div></div><div style="text-align:right">${fmt(m.c)} / ${m.min}<br><span class="pill ${k}">${t}</span></div></div>`}).join('')||'<p class="mute">No hay pruebas con mínima definida.</p>'}</div>`}
 function vCal(a){
  const list=D.comps.filter(c=>c.start).sort((x,y)=>x.start.localeCompare(y.start));
@@ -547,7 +549,7 @@ function qComps(q){const stop=['campionat','catalunya','campeonato','cataluna','
 function compText(c){const L=NORMS[c.norm]?`https://www.natacio.cat/wp-json/files/ow-getFile?file=${NORMS[c.norm]}`:'';
  return `**${c.name}** (normativa ${c.norm})\n• ${c.cat||''}${c.venue?' · '+c.venue:''}${c.pool?' · piscina '+c.pool:''}\n• Fechas: del ${fd(c.start)} al ${fd(c.end)}`+
  (c.mfrom?`\n• Marcas válidas: del ${fd(c.mfrom)} al ${fd(c.mto)}`:'')+(c.iopen?`\n• Inscripción: del ${fd(c.iopen)} al ${fd(c.iclose)}`:'')+(c.prov?`\n• Listado provisional: ${fd(c.prov)}${c.defi?' · definitivo: '+fd(c.defi):''}`:'')+(c.notes?`\n• Notas: ${c.notes}`:'')+(L?`\n• Normativa: ${L}`:'')}
-function markLine(m){const c=m.s+corr(m);return `• ${evName(m.ev)} (piscina ${m.pool} m): **${m.t}**${corr(m)?` (manual, corregida ${fmt(c)})`:''} · ${fd(m.date)}${m.place?' · '+m.place:''}${m.pts?' · '+m.pts+' pts':''}${m.min?` · mínima ${m.min}: ${m.ok?'✅ conseguida':'faltan '+m.gap.toFixed(2).replace('.',',')+' s ('+m.pct.toFixed(1).replace('.',',')+' %)'}`:''}`}
+function markLine(m){const c=m.s+corr(m);return `• ${evName(m.ev)} (piscina ${m.pool} m): **${m.t}**${corr(m)?` (manual, corregida ${fmt(c)})`:''} · ${fd(m.date)}${m.place?' · '+m.place:''}${m.pts?' · '+m.pts+' pts':''}${m.min?` · mínima del Campionat d'Hivern ${m.min}: ${m.ok?'✅ conseguida':'faltan '+m.gap.toFixed(2).replace('.',',')+' s ('+m.pct.toFixed(1).replace('.',',')+' %)'}`:''}`}
 function monthSal(a,mk){let n=0;Object.keys(att).forEach(d=>{if(d.startsWith(mk)&&isTrainDay(d)&&d<=TODAY&&isSalowi(a.id,d))n++});return n}
 function answer(raw){
  const q=nn(raw),coach=S.user.role==='coach',mk=ym(new Date());
@@ -579,9 +581,9 @@ function answer(raw){
   if(a){if(a.cat==='alevin')return 'En categoría alevín no hay tiempos mínimos.';let b=best(a).filter(m=>m.ok!==undefined);if(ev.d)b=b.filter(m=>m.ev.startsWith(ev.d)&&(!ev.st||m.ev.endsWith(ev.st)));
    if(!b.length)return `No ${me?'tienes':'tiene'} marcas con mínima definida${ev.d?' en esa prueba':''}.`;
    const ok=b.filter(m=>m.ok),nr=b.filter(m=>!m.ok).sort((x,y)=>x.pct-y.pct);
-   return (ok.length?`✅ Mínimas conseguidas: ${ok.map(m=>evName(m.ev)+' ('+m.pool+' m)').join(', ')}.\n`:'')+(nr.length?`Las más cercanas:\n`+nr.slice(0,5).map(markLine).join('\n'):'')}
+   return `Mínimas para el **${minComp(a)}**:\n`+(ok.length?`✅ Conseguidas: ${ok.map(m=>evName(m.ev)+' ('+m.pool+' m)').join(', ')}.\n`:'')+(nr.length?`Las más cercanas:\n`+nr.slice(0,5).map(markLine).join('\n'):'')}
   const near=[];D.athletes.forEach(x=>best(x).forEach(m=>{if(m.ok===false&&m.pct<=2)near.push([x,m])}));const okn=D.athletes.filter(x=>x.marks.some(m=>m.ok));
-  return `**${okn.length} nadadores** tienen al menos una mínima conseguida.`+(near.length?`\n\nA menos del 2 %:\n`+near.sort((u,v)=>u[1].pct-v[1].pct).slice(0,12).map(([x,m])=>`• ${x.name} · ${evName(m.ev)} (${m.pool} m): ${fmt(m.c)} → ${m.min} (+${m.gap.toFixed(2).replace('.',',')} s)`).join('\n'):'\n\nNadie está a menos del 2 % de una mínima ahora mismo.')}
+  return `**${okn.length} nadadores** tienen al menos una mínima conseguida para el Campionat de Catalunya d'Hivern de su categoría (Júnior o Infantil).`+(near.length?`\n\nA menos del 2 %:\n`+near.sort((u,v)=>u[1].pct-v[1].pct).slice(0,12).map(([x,m])=>`• ${x.name} · ${evName(m.ev)} (${m.pool} m): ${fmt(m.c)} → ${m.min} (+${m.gap.toFixed(2).replace('.',',')} s)`).join('\n'):'\n\nNadie está a menos del 2 % de una mínima ahora mismo.')}
  // Entrenamientos
  if(has(q,/entreno|entrenamiento|dureza|sensacion|carga|cansad|valorad/)&&!has(q,/valoracion del entrenador|opina/)){
   if(!a)return 'Dime de qué nadador quieres ver los entrenamientos (por ejemplo: «entrenamientos de Laia Gilabert»).';
