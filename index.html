@@ -142,6 +142,7 @@ a{color:var(--accent)}
 .cmp{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:6px;font-size:13px;font-weight:700;border:1px solid var(--line);color:var(--mute)}
 .cmp.sal{background:#2e9d4f;border-color:#2e9d4f;color:#fff}.cmp.onlyc,.cmp.onlya{background:#fde7a8;border-color:#e9c96b;color:#5c4400}.cmp.abs{background:var(--line)}
 .day.nolist{background:repeating-linear-gradient(45deg,var(--card),var(--card) 4px,var(--soft) 4px,var(--soft) 8px)}.sw.nolist{background:repeating-linear-gradient(45deg,#fff,#fff 2px,#cfe3ef 2px,#cfe3ef 4px)}
+.day{position:relative}.coinmark{position:absolute;top:-6px;right:-5px;font-size:13px;line-height:1}
 /* app instalada: respetar la muesca del iPhone */
 body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
 .install{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:0 6px 24px #0003;display:flex;gap:10px;align-items:center;z-index:9}
@@ -221,7 +222,7 @@ function posHtml(a,mk,me){const p=teamPos(a,mk);if(!p)return '';
  return `<div class="rank"><div class="pos${lead?' lead':''}">${lead?'🏆 ':''}${p.pos}.ª</div><div><div><b>Posición en el equipo</b> <span class="mute">de ${p.n} nadadores</span></div>${tie?`<div class="${lead?'ok':'mute'}" style="font-weight:600">${tie}</div>`:''}</div></div>`}
 function salCard(a){const mk=ym(new Date()),{got,max,pend}=salowis(a,mk),tot=salSeason(a),me=S.user.role==='athlete';
  const msg=max===0?'Cuando el entrenador pase lista empezarás a sumar salowis.':(got===max?`<b class="ok">¡Pleno! ${me?'Tienes':'Tiene'} el Salowi de todos los entrenos del mes.</b> `:`${got} de ${max} entrenos con Salowi este mes. `)+'¡A final de mes, quien tenga más salowis gana!';
- return `<div class="card"><h3>Salowis de ${MESES[+mk.slice(5)-1]}</h3><div class="sal" style="margin-top:8px"><span class="coin">${COIN}</span><div><div class="big">${got}<span class="mute" style="font-size:20px;font-weight:600"> / ${max}</span></div><div class="mute">1 salowi por entreno con asistencia y valoración · ${tot} en toda la temporada</div></div></div>${posHtml(a,mk,me)}${pend?`<div class="note" style="margin-top:10px">⚠️ ${pend} ${pend===1?'entreno':'entrenos'} con asistencia del entrenador ${me?'que aún no has valorado':'sin valorar por el nadador'}. ${me?'Valóralos en <b>Entrenamiento</b> (dureza, sensaciones y comentario) para sumar el Salowi.':''}</div>`:''}<p style="margin:10px 0 0">${msg}</p></div>`}
+ return `<div class="card"><h3>Salowis de ${MESES[+mk.slice(5)-1]}</h3><div class="sal" style="margin-top:8px"><span class="coin">${COIN}</span><div><div class="big">${got}<span class="mute" style="font-size:20px;font-weight:600"> / ${max}</span></div><div class="mute">1 salowi por entreno con asistencia y valoración · ${tot} en toda la temporada</div></div></div>${posHtml(a,mk,me)}${pend?`<div class="note" style="margin-top:10px">⚠️ ${pend} ${pend===1?'entreno':'entrenos'} con asistencia del entrenador ${me?'que aún no has valorado':'sin valorar por el nadador'}. ${me?'Toca los días con ❗ en el calendario y completa dureza, sensaciones y comentario para sumar el Salowi.':''}</div>`:''}<p style="margin:10px 0 0">${msg}</p></div>`}
 const SAL_INFO=()=>`<div class="card salinfo"><span class="coin">${COIN}</span><div><h3>¿Qué son los Salowis?</h3><p>Son puntos que se consiguen por cada entreno al que asistes. ¡A final de mes, el nadador o nadadora con más Salowis será el ganador o ganadora!</p><p class="mute" style="font-size:14px">Para que cuente, el entreno tiene que estar en la lista de asistencia del entrenador <b>y</b> valorado ${S.user&&S.user.role==='coach'?'por el nadador':'por ti'} en <b>Entrenamiento</b>: dureza, sensaciones y comentario.</p></div></div>`;
 function hello(a){if(S.user.role!=='athlete')return '';const q=QUOTES[new Date().getMonth()];
  return `<div class="hello"><h2>¡Hola, ${esc(a.name.split(' ')[0])}!</h2></div>
@@ -283,12 +284,13 @@ function render(){
  $('#rl').onclick=()=>loadAll();
  if(coach)$('#sel').onchange=e=>{S.aid=e.target.value;S.day=null;render()};
  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;render()});
- ({inicio:vHome,asis:coach?vAsis:vAsisMe,prog:vProg,resumen:vRes,marcas:vMar,minimas:vMin,cal:vCal,norm:vNorm,ent:vEnt,val:vVal})[S.tab](a);
+ if(!coach&&S.tab==='asis')S.tab='ent';
+ ({inicio:vHome,asis:vAsis,prog:vProg,resumen:vRes,marcas:vMar,minimas:vMin,cal:vCal,norm:vNorm,ent:vEnt,val:vVal})[S.tab](a);
  window.scrollTo(0,0);
 }
 /* Apartados: [id, nombre, icono, descripción] */
 function sections(coach){
- const A=[['resumen','Resumen','📊','Tu temporada de un vistazo'],['asis','Asistencia','🪙','Tus Salowis y tus entrenos'],['ent','Entrenamiento','💪','Cómo ha ido cada entreno'],['marcas','Marcas','⏱️','Todas tus mejores marcas'],['minimas','Mínimas','🎯','Lo cerca que estás de cada mínima'],['cal','Calendario','📅','Competiciones y ligas'],['norm','Normativas','📄','Documentos de la federación'],['val','Valoraciones','⭐','Lo que opina el entrenador']];
+ const A=[['resumen','Resumen','📊','Tu temporada de un vistazo'],['ent','Entrenamiento','💪','Valora tus entrenos y suma Salowis'],['marcas','Marcas','⏱️','Todas tus mejores marcas'],['minimas','Mínimas','🎯','Lo cerca que estás de cada mínima'],['cal','Calendario','📅','Competiciones y ligas'],['norm','Normativas','📄','Documentos de la federación'],['val','Valoraciones','⭐','Lo que opina el entrenador']];
  if(!coach)return [['inicio','Inicio','🏠',''],...A];
  return [['inicio','Inicio','🏠',''],['asis','Asistencia','📋','Pasar lista y Salowis del grupo'],['prog','Programación entrenamientos','🗓️','El archivo de entrenamientos'],
   ['resumen','Resumen','📊','Resumen del nadador elegido'],['ent','Entrenamiento','💪','Cómo valoró cada entreno'],['marcas','Marcas','⏱️','Marcas del nadador elegido'],['minimas','Mínimas','🎯','Distancia a cada mínima'],['cal','Calendario','📅','Competiciones y ligas'],['norm','Normativas','📄','Documentos de la federación'],['val','Valoraciones','⭐','Escribir y ver valoraciones']]}
@@ -297,7 +299,7 @@ function vHome(a){
  $('#v').innerHTML=`<div class="stack"><div class="hello"><h2>¡Hola, ${coach?'Entrenador/a':esc(a.name.split(' ')[0])}!</h2></div>
  <div class="card quote"><blockquote>«${esc(q[0])}»</blockquote><div class="mute">— <b>${esc(q[1])}</b>, ${esc(q[2])} · Frase de la semana</div></div>
  ${coach?`<p class="mute" style="margin:4px 0 0">Los apartados del nadador muestran a <b>${esc(a.name)}</b>. Cámbialo arriba, en «Nadador».</p>`:''}
- <div class="menu">${sections(coach).filter(t=>t[0]!=='inicio').map(t=>`<button class="mbtn" data-go="${t[0]}"><span class="ic" aria-hidden="true">${t[2]}</span><span><b>${t[1]}</b><small>${t[0]==='asis'&&sal?`${sal.got} salowis este mes`:t[3]}</small></span></button>`).join('')}</div></div>`;
+ <div class="menu">${sections(coach).filter(t=>t[0]!=='inicio').map(t=>`<button class="mbtn" data-go="${t[0]}"><span class="ic" aria-hidden="true">${t[2]}</span><span><b>${t[1]}</b><small>${t[0]==='ent'&&sal?`🪙 ${sal.got} salowis este mes`:t[3]}</small></span></button>`).join('')}</div></div>`;
  document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.go;render()})}
 /* Asistencia del nadador: Salowis y días con lista */
 function vAsisMe(a){
@@ -362,11 +364,12 @@ function vEnt(a){
  const avg=k=>{const x=rec.filter(v=>v[k]>0).map(v=>v[k]);return x.length?(x.reduce((s,z)=>s+z,0)/x.length).toFixed(1).replace('.',','):'—'};
  let cells='';for(let i=0;i<off;i++)cells+='<div class="day e"></div>';
  for(let d=1;d<=n;d++){const k=S.month+'-'+String(d).padStart(2,'0'),v=days[k],sc=isTrainDay(k),f=v&&v.r&&FEEL[v.s];
-  cells+=`<button class="day ${v&&v.r?'rt':''} ${v&&!v.r?'fa':''} ${sc?'sch':'off'} ${k===TODAY?'today':''} ${k===S.day?'sel':''}" ${f?`style="background:${f[0]}"`:''} data-d="${k}" aria-label="Día ${d}${v?(v.r?', dureza '+v.r+' de 5'+(f?', sensaciones '+f[1].toLowerCase():''):', no asistió'):''}">${d}${v?`<small>${v.r||'✕'}</small>`:''}</button>`}
+  const sal=isSalowi(a.id,k),pend=!sal&&att[k]&&att[k][a.id]==='p';
+  cells+=`<button class="day ${v&&v.r?'rt':''} ${v&&!v.r?'fa':''} ${pend&&!f?'pend':''} ${sc?'sch':'off'} ${k===TODAY?'today':''} ${k===S.day?'sel':''}" ${f?`style="background:${f[0]}"`:''} data-d="${k}" aria-label="Día ${d}${v?(v.r?', dureza '+v.r+' de 5'+(f?', sensaciones '+f[1].toLowerCase():''):', no asistió'):''}${sal?', salowi':pend?', falta completar la valoración':''}">${sal?'<span class="coinmark">🪙</span>':''}${pend?'<span class="coinmark">❗</span>':''}${d}${v?`<small>${v.r||'✕'}</small>`:''}</button>`}
  const ro=S.user.role==='coach';
  $('#v').innerHTML=`<div class="stack" style="margin-bottom:12px">${SAL_INFO()}${salCard(a)}</div><div class="grid g2"><div class="card"><div class="row"><button class="btn ghost" id="pm" aria-label="Mes anterior">‹</button><h3 class="sp" style="text-align:center">${mn} ${y}</h3><button class="btn ghost" id="nm" aria-label="Mes siguiente">›</button></div>
  <div class="cal" style="margin-top:10px">${['L','M','X','J','V','S','D'].map(x=>`<div class="h">${x}</div>`).join('')}${cells}</div>
- <p class="mute">El número es la dureza (1 a 5) y el color, las sensaciones. El punto marca los días de entrenamiento (lunes a jueves).</p>
+ <p class="mute">El número es la dureza (1 a 5) y el color, las sensaciones. El punto marca los días de entrenamiento (lunes a jueves). 🪙 = Salowi conseguido. ❗ = ${ro?'el entrenador lo marcó como «Asistió» pero falta su valoración completa':'el entrenador te ha marcado «Asistió»: completa dureza, sensaciones y comentario para sumar el Salowi'}.</p>
  <div class="row" style="margin-top:4px"><div class="tile"><div class="n">${rec.length}</div><div class="l">entrenos valorados</div></div><div class="tile"><div class="n">${avg('r')}</div><div class="l">dureza media</div></div><div class="tile"><div class="n">${avg('s')}</div><div class="l">sensaciones medias</div></div></div></div>
  <div class="card" id="ed">${S.day?'':`<p class="mute">${ro?'Elige un día para ver cómo valoró el entrenamiento.':'Elige un día en el calendario para valorar cómo fue el entrenamiento.'}</p>`}</div></div>
  <div class="card" style="margin-top:12px" id="lc">${loadChart(days)}</div>`;
