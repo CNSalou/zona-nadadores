@@ -280,7 +280,7 @@ function start(r){const keep=S.user&&S.user.user===r.user;S.user={role:r.role,us
 /* ---------- datos guardados ---------- */
 function trainDays(aid){return train[aid]||{}}
 async function saveDay(aid,date,val){
- try{const r=await api('saveTrain',TOKEN,date,val);train[aid]=r.days;return 'Guardado. El entrenador ya lo puede ver.'}
+ try{const r=await api('saveTrain',TOKEN,date,val);train[aid]=r.days;if(D.rank)api('getData',TOKEN).then(x=>{if(x&&x.rank){D.rank=x.rank;if(S.tab==='ent'&&document.activeElement.id!=='nt')render()}}).catch(()=>{});return 'Guardado. El entrenador ya lo puede ver.'}
  catch(e){return 'No se ha guardado: '+e.message}}
 async function saveEval(aid,ev){const r=await api('saveEval',TOKEN,aid,ev);evals[aid]=r.items}
 async function delEval(aid,id){const r=await api('delEval',TOKEN,aid,id);evals[aid]=r.items;render()}
@@ -527,32 +527,102 @@ function vVal(a){
   catch(x){$('#es').textContent='No se ha podido guardar: '+x.message;$('#eb').disabled=false}};
   document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{b.disabled=true;b.textContent='Borrando…';try{await delEval(a.id,b.dataset.del)}catch(x){b.textContent='Error';}})}}
 
-/* ---------- chat con Claude ---------- */
+/* ---------- asistente (sin IA externa: responde con los datos de la app) ---------- */
 const CHAT={open:false,msgs:[],busy:false};
-const CHAT_SUG={coach:['¿Cuál es la mejor marca de Carla Cuesta en 100 libre?','¿Quién va primero en Salowis este mes?','¿Qué nadadores infantiles están a menos del 2 % de una mínima?','¿Cuándo cierra la inscripción del Campionat de Catalunya Júnior d\'Hivern?'],
- athlete:['¿Cuál es mi mejor marca en 100 libre?','¿Qué mínimas tengo más cerca?','¿Cuándo es mi próximo campeonato y cuándo cierra la inscripción?','¿Qué pruebas puedo nadar en el Campionat de Catalunya de mi categoría?']};
-function md(t){return esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/(https:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/^[-•] /gm,'• ').replace(/\n/g,'<br>')}
-function chatButton(){let b=$('#chatfab');if(!b){b=document.createElement('button');b.id='chatfab';b.className='chatfab';b.innerHTML='💬 <span>Pregunta a Claude</span>';b.onclick=()=>{CHAT.open=true;chatRender()};document.body.appendChild(b)}b.hidden=!S.user||CHAT.open||!(D&&D.chat)}
+const CHAT_SUG={coach:['¿Cuál es la mejor marca de Carla Cuesta en 100 libre?','¿Quién va primero en Salowis este mes?','¿Qué nadadores están a menos del 2 % de una mínima?','¿Cuándo cierra la inscripción del Campionat de Catalunya Júnior d\'Hivern?'],
+ athlete:['¿Cuál es mi mejor marca en 100 libre?','¿Qué mínimas tengo más cerca?','¿Cuántos Salowis llevo y en qué posición voy?','¿Cuándo es mi próximo campeonato?']};
+const nn=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+const has=(q,re)=>re.test(q);
+function md(t){return esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/(https:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">Abrir PDF</a>').replace(/\n/g,'<br>')}
+function qEvent(q){const d=(q.match(/\b(50|100|200|400|800|1500)\b/)||[])[1];
+ const st=has(q,/\b(libre|lliure|crol|free|freestyle)\b/)?'L':has(q,/\b(espalda|esquena|back)/)?'E':has(q,/\b(braza|braca|pit|breast)/)?'B':has(q,/\b(mariposa|papallona|dofi|butterfly)/)?'M':has(q,/\b(estilos|estils|combinad)/)?'S':null;
+ const pool=has(q,/piscina (de )?25|piscina corta|25 ?m(etros)? piscina|\bcorta\b/)?25:has(q,/piscina (de )?50|piscina larga|olimpic/)?50:null;return {d,st,pool}}
+function qAthletes(q){if(S.user.role!=='coach')return [];
+ const sc=D.athletes.map(a=>{const t=nn(a.name).split(/\s+/).filter(w=>w.length>=3);return {a,s:t.filter(w=>new RegExp('\\b'+w+'\\b').test(q)).length}}).filter(x=>x.s>0);
+ if(!sc.length)return [];const top=Math.max(...sc.map(x=>x.s));return sc.filter(x=>x.s===top).map(x=>x.a)}
+function qComps(q){const stop=['campionat','catalunya','campeonato','cataluna','internacional','ciutat'];
+ const w=q.replace(/invierno/g,'hivern').replace(/verano/g,'estiu').replace(/alevin/g,'alevi');
+ return D.comps.filter(c=>c.start).map(c=>{let s=0;nn(c.name).replace(/aleví/g,'alevi').split(/[^a-z]+/).filter(x=>x.length>3&&!stop.includes(x)).forEach(x=>{if(w.includes(x))s+=2});
+  if(new RegExp('\\b'+nn(c.norm)+'\\b').test(w)||new RegExp('normativa\\s*0?'+parseInt(c.norm.slice(1))+'\\b').test(w))s+=5;return {c,s}}).filter(x=>x.s>=2).sort((a,b)=>b.s-a.s).map(x=>x.c)}
+function compText(c){const L=NORMS[c.norm]?`https://www.natacio.cat/wp-json/files/ow-getFile?file=${NORMS[c.norm]}`:'';
+ return `**${c.name}** (normativa ${c.norm})\n• ${c.cat||''}${c.venue?' · '+c.venue:''}${c.pool?' · piscina '+c.pool:''}\n• Fechas: del ${fd(c.start)} al ${fd(c.end)}`+
+ (c.mfrom?`\n• Marcas válidas: del ${fd(c.mfrom)} al ${fd(c.mto)}`:'')+(c.iopen?`\n• Inscripción: del ${fd(c.iopen)} al ${fd(c.iclose)}`:'')+(c.prov?`\n• Listado provisional: ${fd(c.prov)}${c.defi?' · definitivo: '+fd(c.defi):''}`:'')+(c.notes?`\n• Notas: ${c.notes}`:'')+(L?`\n• Normativa: ${L}`:'')}
+function markLine(m){const c=m.s+corr(m);return `• ${evName(m.ev)} (piscina ${m.pool} m): **${m.t}**${corr(m)?` (manual, corregida ${fmt(c)})`:''} · ${fd(m.date)}${m.place?' · '+m.place:''}${m.pts?' · '+m.pts+' pts':''}${m.min?` · mínima ${m.min}: ${m.ok?'✅ conseguida':'faltan '+m.gap.toFixed(2).replace('.',',')+' s ('+m.pct.toFixed(1).replace('.',',')+' %)'}`:''}`}
+function monthSal(a,mk){let n=0;Object.keys(att).forEach(d=>{if(d.startsWith(mk)&&isTrainDay(d)&&d<=TODAY&&isSalowi(a.id,d))n++});return n}
+function answer(raw){
+ const q=nn(raw),coach=S.user.role==='coach',mk=ym(new Date());
+ let who=coach?qAthletes(q):[athlete(S.aid)];
+ if(coach&&who.length>1)return `He encontrado varios nadadores que encajan: ${who.map(a=>'**'+a.name+'**').join(', ')}. Escribe también el apellido.`;
+ if(!coach){const known=new Set(['salowi','salowis','hola','campionat','campeonato','catalunya','cataluna','liga','lliga','jornada','normativa','world','aquatics','espana','espanya','open','gran','premi','que','cual','cuando','cuantos','cuantas','como','donde','mis','mi','me','el','la','los','las']);
+  nn(athlete(S.aid).name).split(/\s+/).forEach(w=>known.add(w));D.comps.concat(D.ligas).forEach(c=>nn(c.name).split(/[^a-z]+/).forEach(w=>known.add(w)));MESES.forEach(w=>known.add(nn(w)));
+  const caps=(String(raw).match(/[A-ZÁÉÍÓÚÑÇ][a-záéíóúñçü]{2,}/g)||[]).map(nn).filter(w=>!known.has(w));
+  const firstWord=nn((String(raw).trim().match(/^[¿¡]?([A-Za-zÁÉÍÓÚÑÇáéíóúñçü]+)/)||[])[1]||'');
+  if(caps.filter(w=>w!==firstWord).length)return 'Solo puedo responder sobre tus propios datos. Si quieres saber algo de otro nadador o nadadora, pregúntaselo al entrenador.'}
+ const a=who[0]||null,me=!coach;
+ const ev=qEvent(q);
+ // Salowis / asistencia
+ if(has(q,/salowi|asistencia|asisti|vino|ranking|clasificaci|primer|gana|cabeza|posicion/)){
+  if(a){const s=salowis(a,mk),p=teamPos(a,mk);return `${me?'Llevas':'**'+a.name+'** lleva'} **${s.got} ${s.got===1?'Salowi':'Salowis'}** en ${MESES[+mk.slice(5)-1]} (de ${s.max} entrenos con lista).`+(p&&s.got&&p.got===s.got?`\n• Posición en el equipo: **${p.pos}.ª** de ${p.n}${p.tie?` (empate con ${p.tie})`:''}.`:'')+(s.pend?`\n• ${s.pend} ${s.pend===1?'entreno marcado':'entrenos marcados'} como «Asistió» sin valoración completa (falta dureza, sensaciones o comentario).`:'')+'\n• Salowi = «Asistió» en la lista del entrenador + entreno valorado con dureza, sensaciones y comentario.'}
+  const r=D.athletes.map(x=>({x,n:monthSal(x,mk)})).filter(o=>o.n>0).sort((u,v)=>v.n-u.n);
+  if(!r.length)return `Todavía nadie tiene Salowis en ${MESES[+mk.slice(5)-1]}.`;
+  return `**Salowis de ${MESES[+mk.slice(5)-1]}** (todo el equipo):\n`+r.slice(0,10).map(o=>`${1+r.filter(z=>z.n>o.n).length}.ª · ${o.x.name}: ${o.n}${o.n===r[0].n?' 🏆':''}`).join('\n')}
+ // Calendario / competiciones / normativas
+ if(has(q,/liga|lliga|jornada/)){const cat=a?a.cat:(has(q,/infantil/)?'infantil':has(q,/alevi/)?'alevin':null);
+  const ls=D.ligas.filter(l=>!cat||(cat==='alevin'?/alev/i.test(l.cat):cat==='infantil'?/infantil/i.test(l.cat):false));
+  return ls.length?`**${ls[0].name}**\n`+ls.map(l=>`• Jornada ${l.j}: del ${fd(l.start)} al ${fd(l.end)} · entrega de tiempos ${fd(l.deadline)} · publicación ${fd(l.pub)}`).join('\n'):'No hay ligas para esa categoría en el calendario.'}
+ const cs=qComps(q).filter(c=>coach||relevant(c,a)),wantsCal=has(q,/campeonat|campionat|competici|inscripci|cuando|fecha|dia |plazo|listado|normativ|norma|reglament|requisit|pruebas puedo|liga|lliga|jornada|proxim|calendario/);
+ if(cs.length&&(wantsCal||!ev.d))return cs.slice(0,2).map(compText).join('\n\n')+(has(q,/normativ|norma|reglament|requisit|pruebas puedo/)?'\n\nEl detalle (pruebas, requisitos, horarios) está en el PDF de la normativa. No puedo leerlo por dentro: ábrelo con el enlace.':'');
+ if(wantsCal&&!ev.d){const list=a?nextComps(a):D.comps.filter(c=>c.start&&c.end>=TODAY).sort((x,y)=>x.start.localeCompare(y.start));
+  return list.length?(a?`Próximas competiciones ${me?'de tu categoría':'de la categoría de **'+a.name+'**'}:\n\n`:'Próximas competiciones:\n\n')+list.slice(0,3).map(compText).join('\n\n'):'No hay competiciones pendientes en el calendario.'}
+ // Mínimas
+ if(has(q,/minim|corte|clasific/)){
+  if(a){if(a.cat==='alevin')return 'En categoría alevín no hay tiempos mínimos.';let b=best(a).filter(m=>m.ok!==undefined);if(ev.d)b=b.filter(m=>m.ev.startsWith(ev.d)&&(!ev.st||m.ev.endsWith(ev.st)));
+   if(!b.length)return `No ${me?'tienes':'tiene'} marcas con mínima definida${ev.d?' en esa prueba':''}.`;
+   const ok=b.filter(m=>m.ok),nr=b.filter(m=>!m.ok).sort((x,y)=>x.pct-y.pct);
+   return (ok.length?`✅ Mínimas conseguidas: ${ok.map(m=>evName(m.ev)+' ('+m.pool+' m)').join(', ')}.\n`:'')+(nr.length?`Las más cercanas:\n`+nr.slice(0,5).map(markLine).join('\n'):'')}
+  const near=[];D.athletes.forEach(x=>best(x).forEach(m=>{if(m.ok===false&&m.pct<=2)near.push([x,m])}));const okn=D.athletes.filter(x=>x.marks.some(m=>m.ok));
+  return `**${okn.length} nadadores** tienen al menos una mínima conseguida.`+(near.length?`\n\nA menos del 2 %:\n`+near.sort((u,v)=>u[1].pct-v[1].pct).slice(0,12).map(([x,m])=>`• ${x.name} · ${evName(m.ev)} (${m.pool} m): ${fmt(m.c)} → ${m.min} (+${m.gap.toFixed(2).replace('.',',')} s)`).join('\n'):'\n\nNadie está a menos del 2 % de una mínima ahora mismo.')}
+ // Entrenamientos
+ if(has(q,/entreno|entrenamiento|dureza|sensacion|carga|cansad|valorad/)&&!has(q,/valoracion del entrenador|opina/)){
+  if(!a)return 'Dime de qué nadador quieres ver los entrenamientos (por ejemplo: «entrenamientos de Laia Gilabert»).';
+  const days=trainDays(a.id),rec=Object.entries(days).filter(([d,v])=>d.startsWith(mk)&&v.r>0).sort();const av=k=>{const x=rec.filter(([,v])=>v[k]>0).map(([,v])=>v[k]);return x.length?(x.reduce((s,z)=>s+z,0)/x.length).toFixed(1).replace('.',','):'—'};
+  return `Entrenos valorados ${me?'':'por **'+a.name+'** '}en ${MESES[+mk.slice(5)-1]}: **${rec.length}** · dureza media ${av('r')}/5 · sensaciones medias ${av('s')}/5.`+(rec.length?`\nÚltimo: ${fd(rec[rec.length-1][0])} · dureza ${rec[rec.length-1][1].r}/5 · ${FEEL[rec[rec.length-1][1].s]?FEEL[rec[rec.length-1][1].s][1].toLowerCase()+' sensaciones':''}${rec[rec.length-1][1].n?` · «${rec[rec.length-1][1].n}»`:''}`:'')}
+ // Valoraciones del entrenador
+ if(has(q,/valoracion|opina|comentario del entrenador|feedback/)){if(!a)return 'Dime de qué nadador quieres ver las valoraciones.';const l=evals[a.id]||[];
+  return l.length?l.slice(0,3).map(e=>`**${e.comp}** · ${fd(e.date)}\n${e.general}${e.pos?'\n• Positivo: '+e.pos:''}${e.mej?'\n• A mejorar: '+e.mej:''}`).join('\n\n'):`Todavía no hay valoraciones${me?'':' de '+a.name}.`}
+ // Puntos
+ if(has(q,/punto|fina|world aquatics|mejor prueba/)){
+  if(a){const t=best(a).filter(m=>m.pts).sort((x,y)=>y.pts-x.pts).slice(0,3);return t.length?`${me?'Tus mejores pruebas':'Mejores pruebas de **'+a.name+'**'} por puntos World Aquatics:\n`+t.map(markLine).join('\n'):'No hay marcas con puntos.'}
+  const all=[];D.athletes.forEach(x=>x.marks.forEach(m=>{if(m.pts)all.push([x,m])}));return '**Mejores puntuaciones del equipo:**\n'+all.sort((u,v)=>v[1].pts-u[1].pts).slice(0,8).map(([x,m])=>`• ${x.name} · ${evName(m.ev)} (${m.pool} m): ${m.t} · ${m.pts} pts`).join('\n')}
+ // Marcas
+ if(ev.d||has(q,/marca|tiempo|record|crono|mejor/)){
+  if(!a&&coach){if(!ev.d)return 'Dime de qué nadador y qué prueba (por ejemplo: «mejor marca de Carla Cuesta en 100 libre»).';
+   const r=[];D.athletes.forEach(x=>best(x).forEach(m=>{if(m.ev===ev.d+(ev.st||m.ev.slice(-1))&&(!ev.pool||m.pool===ev.pool))r.push([x,m])}));
+   if(!r.length)return `No hay marcas de ${ev.d} m${ev.st?' '+STYN[ev.st].toLowerCase():''} en el equipo.`;
+   return `**Mejores marcas del equipo en ${ev.d} m${ev.st?' '+STYN[ev.st].toLowerCase():''}** (tiempo corregido):\n`+r.sort((u,v)=>u[1].pool-v[1].pool||u[1].c-v[1].c).slice(0,10).map(([x,m])=>`• ${x.name} (${m.pool} m): ${fmt(m.c)} · ${fd(m.date)}`).join('\n')}
+  let ms=best(a);if(ev.d)ms=ms.filter(m=>m.ev.startsWith(ev.d)&&(!ev.st||m.ev.endsWith(ev.st))&&(!ev.pool||m.pool===ev.pool));
+  if(!ms.length)return `No ${me?'tienes':'hay'} marcas${me?'':' de **'+a.name+'**'} en ${ev.d?ev.d+' m'+(ev.st?' '+STYN[ev.st].toLowerCase():''):'ninguna prueba'}${ev.pool?' en piscina de '+ev.pool+' m':''}.`;
+  if(!ev.d)ms=ms.filter(m=>m.pts).sort((x,y)=>y.pts-x.pts).slice(0,5);
+  return `${me?(ev.d?'Tu mejor marca':'Tus mejores marcas'):(ev.d?'Mejor marca':'Mejores marcas')+' de **'+a.name+'**'}${ev.d?' en '+ev.d+' m'+(ev.st?' '+STYN[ev.st].toLowerCase():''):''}:\n`+ms.map(markLine).join('\n')}
+ if(!coach&&D.athletes.length===1&&/[a-z]{3,}\s+[a-z]{3,}/.test(q)&&has(q,/de [a-z]+ [a-z]+/))return 'Solo puedo responder sobre tus propios datos.';
+ return `No he entendido la pregunta. Puedo ayudarte con:\n• **Marcas**: «${coach?'mejor marca de Carla Cuesta en 100 libre':'mi mejor marca en 100 libre'}»\n• **Mínimas**: «${coach?'quién está cerca de una mínima':'qué mínimas tengo más cerca'}»\n• **Salowis**: «${coach?'quién va primero en Salowis':'cuántos Salowis llevo'}»\n• **Competiciones**: «cuándo cierra la inscripción del Campionat Júnior d'Hivern»\n• **Normativas**: «normativa del Campionat Infantil d'Hivern»\n• **Entrenamientos y valoraciones**${coach?' de un nadador':''}`}
+function chatButton(){let b=$('#chatfab');if(!b){b=document.createElement('button');b.id='chatfab';b.className='chatfab';b.innerHTML='🤖 <span>Asistente</span>';b.onclick=()=>{CHAT.open=true;chatRender()};document.body.appendChild(b)}b.hidden=!S.user||CHAT.open}
 function chatRender(){
  chatButton();let p=$('#chatp');if(!CHAT.open){if(p)p.remove();return}
- if(!p){p=document.createElement('div');p.id='chatp';p.className='chatp';p.setAttribute('role','dialog');p.setAttribute('aria-label','Chat con Claude');document.body.appendChild(p)}
+ if(!p){p=document.createElement('div');p.id='chatp';p.className='chatp';p.setAttribute('role','dialog');p.setAttribute('aria-label','Asistente');document.body.appendChild(p)}
  const coach=S.user.role==='coach',sug=CHAT_SUG[coach?'coach':'athlete'];
- p.innerHTML=`<div class="chath"><b>💬 Pregunta a Claude</b><span class="sp"></span>${CHAT.msgs.length?'<button class="btn ghost" id="chnew" title="Empezar de nuevo">Nueva</button>':''}<button class="btn ghost" id="chx" aria-label="Cerrar chat">✕</button></div>
- <div class="chatb" id="chb">${CHAT.msgs.length?'':`<p class="mute" style="margin:0 0 8px">${coach?'Pregunta lo que quieras sobre los datos de la app: marcas, mínimas, Salowis, entrenamientos, valoraciones, calendario o normativas.':'Pregúntame sobre tus marcas, tus mínimas, tus entrenos y Salowis, el calendario o las normativas de tus campeonatos.'}</p><div class="chips">${sug.map(s=>`<button class="chip" data-q="${esc(s)}">${esc(s)}</button>`).join('')}</div>`}
-  ${CHAT.msgs.map(m=>`<div class="msg ${m.role}">${m.role==='assistant'?md(m.content):esc(m.content)}${m.normas&&m.normas.length?`<div class="mute" style="font-size:12px;margin-top:6px">📄 Consultada: ${m.normas.map(esc).join(', ')}</div>`:''}</div>`).join('')}
-  ${CHAT.busy?'<div class="msg assistant mute">Pensando…</div>':''}</div>
- <form class="chatf" id="chf"><textarea id="chq" rows="1" placeholder="Escribe tu pregunta…" ${CHAT.busy?'disabled':''}></textarea><button class="btn" ${CHAT.busy?'disabled':''}>Enviar</button></form>
- <div class="mute chatn">Respuestas generadas por IA (Claude) con los datos de la app. Pueden contener errores: comprueba lo importante.</div>`;
+ p.innerHTML=`<div class="chath"><b>🤖 Asistente CN Salou</b><span class="sp"></span>${CHAT.msgs.length?'<button class="btn ghost" id="chnew" title="Empezar de nuevo">Nueva</button>':''}<button class="btn ghost" id="chx" aria-label="Cerrar">✕</button></div>
+ <div class="chatb" id="chb">${CHAT.msgs.length?'':`<p class="mute" style="margin:0 0 8px">${coach?'Pregúntame por marcas, mínimas, Salowis, entrenamientos, valoraciones, competiciones o normativas de cualquier nadador.':'Pregúntame por tus marcas, tus mínimas, tus Salowis, tus entrenos o las competiciones y normativas de tu categoría.'}</p><div class="chips">${sug.map(s=>`<button class="chip" data-q="${esc(s)}">${esc(s)}</button>`).join('')}</div>`}
+  ${CHAT.msgs.map(m=>`<div class="msg ${m.role}">${m.role==='assistant'?md(m.content):esc(m.content)}</div>`).join('')}</div>
+ <form class="chatf" id="chf"><textarea id="chq" rows="1" placeholder="Escribe tu pregunta…"></textarea><button class="btn">Enviar</button></form>
+ <div class="mute chatn">Asistente automático de la app: responde solo con los datos que ${coach?'ves':'tienes'} aquí. No usa inteligencia artificial externa y ningún dato sale de la app.</div>`;
  const b=$('#chb');b.scrollTop=b.scrollHeight;
  $('#chx').onclick=()=>{CHAT.open=false;chatRender()};
  if($('#chnew'))$('#chnew').onclick=()=>{CHAT.msgs=[];chatRender()};
  document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>chatSend(c.dataset.q));
  const q=$('#chq');q.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('#chf').requestSubmit()}};
- $('#chf').onsubmit=e=>{e.preventDefault();chatSend(q.value)};if(!CHAT.busy)q.focus()}
-async function chatSend(t){t=String(t||'').trim();if(!t||CHAT.busy)return;CHAT.msgs.push({role:'user',content:t});CHAT.busy=true;chatRender();
- try{const r=await api('chat',TOKEN,CHAT.msgs.map(m=>({role:m.role,content:m.content})));CHAT.msgs.push(r.error?{role:'assistant',content:'⚠️ '+r.error,err:1}:{role:'assistant',content:r.text||'(sin respuesta)',normas:r.normas})}
- catch(e){CHAT.msgs.push({role:'assistant',content:'⚠️ No se ha podido conectar: '+e.message,err:1})}
- CHAT.msgs=CHAT.msgs.filter((m,i,a)=>!(m.err&&i<a.length-1));CHAT.busy=false;chatRender()}
+ $('#chf').onsubmit=e=>{e.preventDefault();chatSend(q.value)};q.focus()}
+function chatSend(t){t=String(t||'').trim();if(!t)return;CHAT.msgs.push({role:'user',content:t});let r;try{r=answer(t)}catch(e){r='No he podido responder a eso. Prueba a escribirlo de otra forma.'}CHAT.msgs.push({role:'assistant',content:r});chatRender()}
 
 /* ---------- arranque ---------- */
 (function(){const t=LS.get('cnsalou_t',null);if(t){TOKEN=t;loadAll()}else loginView()})();

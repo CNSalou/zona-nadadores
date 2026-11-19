@@ -12,8 +12,6 @@ const CFG = {
   MARCAS_ID: '1cHUn_mu_7fuc_RyTimqZW_Kb08Y--DYYm886-wVZCXc',   // Excel de mínimas y mejores marcas
   PROG_ID: '11XhbiyIoxIy-zU0B29RDvOIw7tru7JI_rH3_FIe_wIk',     // Programación de entrenamientos
   TITULO: 'Zona Nadadores CN Salou',
-  CHAT_MODEL: 'claude-haiku-5-5',  // modelo de Claude para el chat
-  CHAT_MAX_DIA: 40,    // preguntas máximas por usuario y día (controla el gasto)
   CACHE_SEG: 600,      // los cálculos del Excel se guardan 10 min (se borran solos al editar el Excel)
   SESION_DIAS: 30,     // días que dura la sesión en el móvil antes de pedir el PIN otra vez
   ZONA: 'Europe/Madrid'
@@ -29,7 +27,7 @@ const BASE = {"M|25|50L":19.9,"M|50|50L":20.91,"M|25|100L":44.84,"M|50|100L":46.
  * ========================================================================= */
 
 // La app (GitHub Pages) llama aquí con POST {fn, args}. Respuesta: {ok:true, data} o {ok:false, error}.
-const API = { login: login, getData: getData, saveTrain: saveTrain, saveAtt: saveAtt, saveEval: saveEval, delEval: delEval, getProg: getProg, chat: chat };
+const API = { login: login, getData: getData, saveTrain: saveTrain, saveAtt: saveAtt, saveEval: saveEval, delEval: delEval, getProg: getProg };
 
 function doPost(e) {
   let out;
@@ -197,10 +195,11 @@ function prop(k) {
 function getData(token) {
   const s = auth(token);
   const D = buildData();
-  withIds(D);
+  const byName = {};
+  usersRows().forEach(u => { if (u.role !== 'entrenador') byName[normName(u.name)] = u.user; });
+  D.athletes.forEach(a => { a.user = byName[normName(a.name)] || null; a.id = a.user || ('x-' + slug(a.name)); });
   const st = store();
-  const base = { role: s.role, user: s.user, name: s.name, mintab: D.mintab, comps: D.comps, ligas: D.ligas, built: D.built,
-    chat: !!PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY') };
+  const base = { role: s.role, user: s.user, name: s.name, mintab: D.mintab, comps: D.comps, ligas: D.ligas, built: D.built };
   if (s.role === 'coach') {
     return Object.assign(base, { athletes: D.athletes, evals: st.evals, train: st.train, att: st.att });
   }
@@ -246,13 +245,6 @@ function teamRank(att, train, athletes, id) {
     out[mk] = { pos: 1 + vals.filter(v => v > mine).length, tie: vals.filter(v => v === mine).length - 1, n: athletes.length, got: mine };
   });
   return out;
-}
-
-function withIds(D) {
-  const byName = {};
-  usersRows().forEach(u => { if (u.role !== 'entrenador') byName[normName(u.name)] = u.user; });
-  D.athletes.forEach(a => { a.user = byName[normName(a.name)] || null; a.id = a.user || ('x-' + slug(a.name)); });
-  return D;
 }
 
 function buildData() {
@@ -500,163 +492,4 @@ function isoWeek(d) {
   const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day);
   return Math.ceil(((t - new Date(Date.UTC(t.getUTCFullYear(), 0, 1))) / 864e5 + 1) / 7);
-}
-
-/* =========================================================================
- *  CHAT CON CLAUDE
- *  La clave se guarda en Configuración del proyecto → Propiedades del script → ANTHROPIC_API_KEY.
- *  Cada usuario solo envía a Claude los datos que puede ver en la app.
- * ========================================================================= */
-
-const NORMAS = { N09: 22519, N10: 22520, N20: 22530, N21: 22531, N22: 22532, N24: 22534, N25: 22535, N26: 22536, N27: 22795, N28: 22796 };
-const ESTILO = { L: 'libre', E: 'espalda', B: 'braza', M: 'mariposa', S: 'estilos' };
-
-function chat(token, msgs) {
-  const s = auth(token);
-  const key = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
-  if (!key) return { error: 'El chat todavía no está activado: falta la clave de Claude en el servidor.' };
-  const today = Utilities.formatDate(new Date(), CFG.ZONA, 'yyyy-MM-dd');
-  const cache = CacheService.getScriptCache(), ck = 'chat_' + s.user + '_' + today, n = +(cache.get(ck) || 0);
-  if (n >= CFG.CHAT_MAX_DIA) return { error: 'Has llegado al máximo de ' + CFG.CHAT_MAX_DIA + ' preguntas por hoy. Vuelve a intentarlo mañana.' };
-
-  msgs = (Array.isArray(msgs) ? msgs : []).filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
-    .map(m => ({ role: m.role, content: m.content.slice(0, 2000) })).slice(-12);
-  while (msgs.length && msgs[0].role !== 'user') msgs.shift();
-  if (!msgs.length || msgs[msgs.length - 1].role !== 'user') return { error: 'No hay ninguna pregunta.' };
-
-  const D = withIds(buildData()), st = store();
-  const me = s.role === 'athlete' ? D.athletes.find(a => a.user === s.user) : null;
-  if (s.role === 'athlete' && !me) return { error: 'No hay datos a tu nombre en el Excel. Avisa al entrenador.' };
-  const system = chatSystem(s, me, D, st, today);
-
-  const q = msgs[msgs.length - 1].content;
-  const docs = pickNormas(q, me, D.comps).slice(0, 2);
-  const blocks = [];
-  docs.forEach(c => {
-    try {
-      const pdf = UrlFetchApp.fetch('https://www.natacio.cat/wp-json/files/ow-getFile?file=' + NORMAS[c.norm], { muteHttpExceptions: true });
-      if (pdf.getResponseCode() === 200) blocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: Utilities.base64Encode(pdf.getBlob().getBytes()) }, title: 'Normativa ' + c.norm + ' · ' + c.name });
-    } catch (e) {}
-  });
-  if (blocks.length) msgs[msgs.length - 1] = { role: 'user', content: blocks.concat([{ type: 'text', text: q }]) };
-
-  const res = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
-    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
-    headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-    payload: JSON.stringify({ model: CFG.CHAT_MODEL, max_tokens: 1024, system: system, messages: msgs })
-  });
-  let body = {}; try { body = JSON.parse(res.getContentText()); } catch (e) {}
-  if (res.getResponseCode() !== 200) {
-    const m = (body.error && body.error.message) || ('error ' + res.getResponseCode());
-    return { error: /credit|balance/i.test(m) ? 'El chat no puede responder: la cuenta de Claude se ha quedado sin saldo.' : 'Claude no ha podido responder (' + m + ').' };
-  }
-  cache.put(ck, String(n + 1), 21600);
-  return { text: (body.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim(), normas: docs.map(c => c.norm + ' · ' + c.name) };
-}
-
-// Elige las normativas (PDF) que vale la pena adjuntar según la pregunta
-function pickNormas(q, me, comps) {
-  const t = normName(q);
-  const wantsRules = /normativ|norma|reglament|requisit|inscrip|minim|clasific|particip|prueba|sesion|jornad|categor|seleccion|criteri|relevo|horario|program/.test(t);
-  const withPdf = comps.filter(c => NORMAS[c.norm]);
-  const scored = withPdf.map(c => {
-    let sc = 0;
-    const code = c.norm.toLowerCase(), num = String(parseInt(c.norm.slice(1), 10));
-    if (t.indexOf(code) >= 0 || new RegExp('normativa\\s*0?' + num + '\\b').test(t)) sc += 10;
-    normName(c.name).split(/[^a-z]+/).filter(w => w.length > 4 && ['campionat', 'catalunya', 'internacional'].indexOf(w) < 0).forEach(w => { if (t.indexOf(w) >= 0) sc += 2; });
-    if (me && relevantTo(c, me)) sc += 1;
-    return { c: c, sc: sc };
-  }).filter(x => x.sc >= 2 || (x.sc >= 1 && wantsRules)).sort((a, b) => b.sc - a.sc || (a.c.start || '').localeCompare(b.c.start || ''));
-  if (!scored.length && wantsRules && me) {
-    const next = withPdf.filter(c => relevantTo(c, me) && (c.end || '') >= Utilities.formatDate(new Date(), CFG.ZONA, 'yyyy-MM-dd'));
-    return next.slice(0, 1);
-  }
-  if (!wantsRules && !scored.some(x => x.sc >= 4)) return [];
-  const seen = {}; return scored.map(x => x.c).filter(c => !seen[c.norm] && (seen[c.norm] = 1));
-}
-
-function relevantTo(c, a) {
-  const k = normName(c.cat || ''), y = String(a.year);
-  if (a.cat === 'junior') return /junior|absolut/.test(k) || k.indexOf(y) >= 0;
-  if (a.cat === 'infantil') return /infantil/.test(k) || k.indexOf(y) >= 0;
-  return /alev/.test(k) || k.indexOf(y) >= 0;
-}
-
-function evNombre(ev) { const m = String(ev).match(/^(\d+)([LEBMS])$/); return m ? m[1] + ' m ' + ESTILO[m[2]] : ev; }
-function fechaES(d) { return d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '—'; }
-function catNombre(c) { return c === 'alevin' ? 'Alevín' : c === 'infantil' ? 'Infantil' : 'Júnior'; }
-
-function marcasTexto(a) {
-  return a.marks.map(m => {
-    const corr = m.ch === 'Manual' ? (m.ev.indexOf('50') === 0 ? 0.29 : 0.19) : 0;
-    let t = '  - ' + evNombre(m.ev) + ' (piscina ' + m.pool + ' m): ' + m.t + ' ' + (m.ch || '') + (corr ? ' → corregida ' + fmt(round2(m.s + corr)) : '') +
-      ' · ' + fechaES(m.date) + (m.place ? ' · ' + m.place : '') + (m.pts ? ' · ' + m.pts + ' puntos WA' : '');
-    if (m.min) t += ' · mínima Catalunya ' + m.min + (m.ok ? ' (CONSEGUIDA)' : ' (le faltan ' + m.gap.toFixed(2) + ' s, ' + m.pct.toFixed(1) + ' %)');
-    return t;
-  }).join('\n') || '  (sin marcas)';
-}
-
-function salowisMes(att, train, id) {
-  const valid = d => { const v = (train[id] || {})[d]; return !!(v && v.r > 0 && v.s > 0 && String(v.n || '').trim()); };
-  const out = {};
-  Object.keys(att).forEach(d => {
-    const w = new Date(d + 'T12:00:00Z').getUTCDay(); if (w < 1 || w > 4) return;
-    const v = att[d][id]; if (!v) return;
-    const o = out[d.slice(0, 7)] || (out[d.slice(0, 7)] = { asistio: 0, falto: 0, salowis: 0 });
-    if (v === 'p') { o.asistio++; if (valid(d)) o.salowis++; } else o.falto++;
-  });
-  return Object.keys(out).sort().map(k => '  - ' + k + ': asistió ' + out[k].asistio + ', faltó ' + out[k].falto + ', salowis ' + out[k].salowis).join('\n') || '  (sin listas de asistencia)';
-}
-
-function diarioTexto(train, id, desde) {
-  const days = train[id] || {};
-  return Object.keys(days).filter(d => d >= desde).sort().map(d => {
-    const v = days[d];
-    return '  - ' + fechaES(d) + ': ' + (v.r ? 'dureza ' + v.r + '/5, sensaciones ' + (v.s || '—') + '/5' + (v.n ? ', comentario: "' + v.n.replace(/\s+/g, ' ').slice(0, 300) + '"' : ', sin comentario') : 'dice que no asistió');
-  }).join('\n') || '  (sin registros)';
-}
-
-function chatSystem(s, me, D, st, today) {
-  const hace = new Date(); hace.setDate(hace.getDate() - (s.role === 'coach' ? 30 : 90));
-  const desde = Utilities.formatDate(hace, CFG.ZONA, 'yyyy-MM-dd');
-  let p = 'Eres el asistente de la app «Zona Nadadores» del Club Natació Salou (CN Salou), hecho con Claude. Hoy es ' + fechaES(today) + '.\n' +
-    'Responde en el idioma en que te escriban (normalmente castellano o catalán), de forma breve, clara y amable. Usa listas cortas si ayudan.\n' +
-    'Responde SOLO con la información de los DATOS de abajo y de los documentos de normativa adjuntos, si los hay. Si algo no está, dilo claramente y sugiere consultar al entrenador o la normativa de la Federació Catalana de Natació. No inventes marcas, fechas, mínimas ni requisitos.\n' +
-    'Tiempos en formato mm:ss.cc. Las marcas con cronómetro manual se corrigen +0,29 s (50 m) o +0,19 s (resto) para compararlas con las mínimas y calcular puntos World Aquatics. «Mejor marca» = la marca de esa prueba y piscina; si hay de 25 y 50 m, dilas por separado.\n' +
-    'Salowis: 1 por cada entreno (lunes a jueves) que el entrenador marca como «Asistió» y que el nadador ha valorado en Entrenamiento con dureza, sensaciones y comentario. A final de mes gana quien tenga más.\n' +
-    'No hables de temas que no tengan que ver con la natación, el club o la app.\n';
-  if (s.role === 'athlete') {
-    p += '\nHablas con ' + me.name + ', nadador/a del club (menor de edad). Solo tienes SUS datos. Si pregunta por marcas, asistencia, entrenamientos o cualquier dato de otros nadadores, explica con amabilidad que solo puedes hablar de los suyos. ' +
-      'Usa un tono cercano y motivador, sin presión. No des consejos médicos, de dieta ni de peso; ante dolor, lesiones o malestar, dile que hable con su entrenador y su familia.\n';
-    p += '\n=== DATOS DE ' + me.name.toUpperCase() + ' ===\nCategoría: ' + catNombre(me.cat) + ' · año ' + me.year + ' · sexo ' + me.sex + '\nMarcas:\n' + marcasTexto(me) +
-      '\nAsistencia por mes (lista del entrenador):\n' + salowisMes(st.att, st.train, me.id) +
-      '\nDiario de entrenamientos (últimos 90 días):\n' + diarioTexto(st.train, me.id, desde) +
-      '\nValoraciones del entrenador:\n' + ((st.evals[me.id] || []).map(e => '  - ' + fechaES(e.date) + ' · ' + e.comp + ': ' + e.general + (e.pos ? ' | Positivo: ' + e.pos : '') + (e.mej ? ' | A mejorar: ' + e.mej : '')).join('\n') || '  (ninguna)');
-    const mt = (D.mintab[me.cat] || []).filter(r => r[0] === me.sex && r[1] === me.year);
-    if (mt.length) p += '\nMínimas de Catalunya para su sexo y año:\n' + mt.map(r => '  - ' + evNombre(r[2]) + ' (piscina ' + r[3] + ' m): ' + r[4] + (r[5] ? ' (' + r[5] + ')' : '')).join('\n');
-  } else {
-    p += '\nHablas con el entrenador del club. Tienes los datos de todo el equipo; puedes comparar nadadores, hacer rankings y resúmenes.\n';
-    p += '\n=== NADADORES ===\n' + D.athletes.map(a => '\n## ' + a.name + ' · ' + catNombre(a.cat) + ' · año ' + a.year + ' · sexo ' + a.sex + (a.user ? ' · usuario ' + a.user : ' · sin usuario') +
-      '\nMarcas:\n' + marcasTexto(a) + '\nAsistencia por mes:\n' + salowisMes(st.att, st.train, a.id) + '\nDiario (últimos 30 días):\n' + diarioTexto(st.train, a.id, desde) +
-      '\nValoraciones:\n' + ((st.evals[a.id] || []).map(e => '  - ' + fechaES(e.date) + ' · ' + e.comp + ': ' + e.general + (e.pos ? ' | Positivo: ' + e.pos : '') + (e.mej ? ' | A mejorar: ' + e.mej : '')).join('\n') || '  (ninguna)')).join('\n');
-    p += '\n\n=== MÍNIMAS DE CATALUNYA (sexo · año · prueba · piscina · mínima) ===\n' + ['junior', 'infantil'].map(c => (D.mintab[c] || []).map(r => '  - ' + catNombre(c) + ' · ' + r[0] + ' · ' + r[1] + ' · ' + evNombre(r[2]) + ' · ' + r[3] + ' m · ' + r[4]).join('\n')).join('\n');
-  }
-  p += '\n\n=== CALENDARIO DE COMPETICIONES ===\n' + D.comps.map(c => '  - ' + c.name + ' (normativa ' + c.norm + ') · ' + (c.cat || '') + ' · ' + (c.venue || '') + (c.pool ? ' · piscina ' + c.pool : '') +
-    ' · del ' + fechaES(c.start) + ' al ' + fechaES(c.end) + ' · marcas válidas del ' + fechaES(c.mfrom) + ' al ' + fechaES(c.mto) +
-    ' · inscripción del ' + fechaES(c.iopen) + ' al ' + fechaES(c.iclose) + ' · listado provisional ' + fechaES(c.prov) + ' · definitivo ' + fechaES(c.defi) + (c.notes ? ' · Notas: ' + c.notes : '')).join('\n');
-  p += '\n\n=== LIGAS (jornadas) ===\n' + D.ligas.map(l => '  - ' + l.name + ' (' + (l.cat || '') + ') · jornada ' + l.j + ' · del ' + fechaES(l.start) + ' al ' + fechaES(l.end) + ' · entrega de tiempos ' + fechaES(l.deadline) + ' · publicación ' + fechaES(l.pub) + (l.notes ? ' · ' + l.notes : '')).join('\n');
-  p += '\n\nEnlaces a normativas (PDF de la federación): ' + Object.keys(NORMAS).map(k => k + ' https://www.natacio.cat/wp-json/files/ow-getFile?file=' + NORMAS[k]).join(' · ');
-  return p;
-}
-
-// Ejecútala una vez desde el editor tras pegar la clave: comprueba que el chat funciona (y pide el permiso de conexión externa).
-function probarChat() {
-  const key = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
-  if (!key) { Logger.log('Falta la propiedad ANTHROPIC_API_KEY.'); return; }
-  const res = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
-    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
-    headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-    payload: JSON.stringify({ model: CFG.CHAT_MODEL, max_tokens: 50, messages: [{ role: 'user', content: 'Responde solo: «Chat de Zona Nadadores listo».' }] })
-  });
-  Logger.log(res.getResponseCode() + ' · ' + res.getContentText().slice(0, 400));
 }
