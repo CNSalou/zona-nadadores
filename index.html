@@ -409,7 +409,7 @@ function render(){
  if(!coach&&S.tab==='asis')S.tab='ent';
  if(!coach&&S.tab==='minimas'&&a.cat==='master')S.tab='resumen';
  if(coach&&SUBS.some(t=>t[0]===S.tab)){S.sub=S.tab;S.tab='datos'}
- ({inicio:vHome,datos:vDatos,asis:vAsis,prog:vProg,resumen:vRes,marcas:vMar,minimas:vMin,cal:vCal,norm:vNorm,ent:vEnt,val:vVal})[S.tab](a);
+ ({inicio:vHome,datos:vDatos,asis:vAsis,prog:vProg,ccal:vCalAll,resumen:vRes,marcas:vMar,minimas:vMin,cal:vCal,norm:vNorm,ent:vEnt,val:vVal})[S.tab](a);
  window.scrollTo(0,same?y0:0);chatButton();
 }
 /* Apartados: [id, nombre, icono, descripción] */
@@ -418,7 +418,7 @@ const SUBS=[['resumen','Resumen','📊','Tu temporada de un vistazo'],['ent','En
 /* Pestañas: [id, nombre, icono, descripción] */
 function sections(coach){
  if(!coach){const a=athlete(S.aid);return [['inicio','Inicio','🏠',''],...SUBS.filter(t=>!(t[0]==='minimas'&&a&&a.cat==='master'))]}
- return [['inicio','Inicio','🏠',''],['asis','Asistencia','📋','Pasar lista, Pulpines y registros'],['prog','Programación entrenamientos','🗓️','El archivo de entrenamientos'],['datos','Datos nadadores','👥','Elige un nadador y consulta sus apartados']]}
+ return [['inicio','Inicio','🏠',''],['asis','Asistencia','📋','Pasar lista, Pulpines y registros'],['prog','Programación entrenamientos','🗓️','El archivo de entrenamientos'],['ccal','Calendario','📅','Todas las competiciones, también las Máster'],['datos','Datos nadadores','👥','Elige un nadador y consulta sus apartados']]}
 /* Entrenador: elegir nadador y apartado */
 function vDatos(){
  const a=S.aid?athlete(S.aid):null;if(!S.sub)S.sub='resumen';
@@ -540,6 +540,24 @@ function vNorm(a){
  $('#v').innerHTML=`<div class="card"><h2>Normativas</h2><p class="mute">Documentos oficiales de la Federació Catalana de Natació. Se abren en la web federativa.</p><div class="stack">
  ${Object.values(seen).sort((x,y)=>(relevant(y,a)-relevant(x,a))||x.norm.localeCompare(y.norm)).map(c=>`<div class="row"><span class="pill ${relevant(c,a)?'ok':'na'}">${esc(c.norm)}</span><div class="sp"><b>${esc(c.name)}</b><br><span class="mute">${esc(c.cat)}</span></div>${NORMS[c.norm]?`<a href="https://www.natacio.cat/wp-json/files/ow-getFile?file=${NORMS[c.norm]}" target="_blank" rel="noopener">Abrir PDF</a>`:''}</div>`).join('')}</div>
  <div class="note" style="margin-top:12px">Las normativas pueden actualizarse. Ante cualquier duda, manda el documento vigente de la federación.</div></div>`}
+/* Calendario del entrenador: todas las competiciones (también Máster y club), con filtro por categoría */
+const CF=[['all','Todas'],['junior','Junior'],['infantil','Infantil'],['alevin','Alevín'],['master','Máster'],['club','Club']];
+function compCats(c){if(c.ms)return ['master'];const k=String(c.cat||'').toLowerCase(),o=[];
+ if(/j[uú]nior|absolut/.test(k))o.push('junior');if(/infantil/.test(k))o.push('infantil');if(/alev/.test(k))o.push('alevin');if(!c.norm)o.push('club');return o}
+function vCalAll(){
+ const f=S.cf||'all',ok=c=>f==='all'||compCats(c).includes(f);
+ const list=D.comps.filter(c=>c.start&&ok(c)).sort((x,y)=>x.start.localeCompare(y.start)),undated=D.comps.filter(c=>!c.start&&c.ms&&ok(c));
+ const nx=list.find(c=>(c.end||c.start)>=TODAY);let cd='';
+ if(nx){const n=daysTo(nx.start),on=n<=0;cd=`<div class="card cd" style="margin-bottom:12px"><div class="num">${on?'¡Hoy!':n}${on?'':`<small>${n===1?'día':'días'}</small>`}</div><div><div class="mute">${on?'Competición en curso':'Faltan para la próxima competición'}${f==='all'?'':' · '+CF.find(x=>x[0]===f)[1]}</div><b>${esc(nx.name)}</b><div class="mute">${nx.end&&nx.end!==nx.start?fd(nx.start)+' – '+fd(nx.end):fd(nx.start)}${nx.venue?' · '+esc(nx.venue):''}${nx.pool?' · '+esc(nx.pool):''}</div></div></div>`}
+ const catTxt=c=>c.ms?'Máster':compCats(c).filter(x=>x!=='club').map(x=>CATN[x]).join(' · ');
+ const lig=D.ligas.filter(l=>f==='all'||(f==='alevin'&&/Alev/.test(l.cat))||(f==='infantil'&&/Infantil/.test(l.cat)));
+ $('#v').innerHTML=cd+`<div class="card"><h2>Calendario de competición</h2><p class="mute">Todas las competiciones de la temporada: las de la FCN para Junior, Infantil y Alevín, las del club y las Máster (Campionats de Catalunya y Circuit Català de Trofeus). En gris, las que ya han pasado.</p>
+ <div class="subs" style="margin:8px 0 10px">${CF.map(x=>`<button class="sub" data-cf="${x[0]}" aria-pressed="${f===x[0]}">${x[1]}</button>`).join('')}</div>
+ <div class="lgd"><span><i style="background:var(--soft);border:1px solid var(--accent)"></i>Máster</span><span><i style="background:var(--bg);border:1px dashed var(--mute)"></i>Ya pasada</span></div><div class="tl">
+ ${list.map(c=>{const p=(c.end||c.start)<TODAY,ct=catTxt(c);return `<div class="it ${p?'past':c.ms?'rel':''}"><b>${esc(c.name)}</b>${p?' <span class="fin">Finalizada</span>':c.start>=TODAY?` <span class="dleft">${leftTxt(daysTo(c.start))}</span>`:' <span class="dleft">En curso</span>'} <span class="pill na">${esc(c.ms?(/Campionat/.test(c.cat)?'Máster · Campeonato':'Máster · Circuito'):(c.norm||'Club'))}</span><br><span>${c.end&&c.end!==c.start?fd(c.start)+' – '+fd(c.end):fd(c.start)}${c.day?' · '+esc(c.day):''}${c.time?' · '+esc(c.time):''}</span> · <span class="mute">${esc(c.venue||'')} ${c.pool?'· '+esc(c.pool):''}</span><br><span class="mute">${ct?'<b>'+esc(ct)+'</b> · ':''}${esc(c.cat||'')}</span>${c.iopen?`<br><span class="mute">Inscripción ${fd(c.iopen)} – ${fd(c.iclose)}${c.prov?' · provisional '+fd(c.prov):''}${c.defi?' · definitivo '+fd(c.defi):''}</span>`:''}</div>`}).join('')||'<p class="mute">No hay competiciones para este filtro.</p>'}</div>
+ ${undated.length?`<div class="note" style="margin-top:12px">📅 Máster, pendiente de fecha y confirmación: ${undated.map(c=>`<b>${esc(c.name)}</b> (${esc(c.venue)} · ${esc(c.pool)})`).join(' · ')}</div>`:''}</div>
+ ${lig.length?`<div class="card" style="margin-top:12px"><h3>Ligas</h3><div class="tw"><table><thead><tr><th>Liga</th><th>Jornada</th><th>Del</th><th>Al</th><th>Entrega de tiempos</th><th>Publicación</th></tr></thead><tbody>${lig.map(l=>`<tr class="${(l.end||l.start)<TODAY?'past':''}"><td>${esc(l.cat||l.name)}</td><td>${esc(l.j)}</td><td>${fd(l.start)}</td><td>${fd(l.end)}</td><td>${fd(l.deadline)}</td><td>${fd(l.pub)}</td></tr>`).join('')}</tbody></table></div></div>`:''}`;
+ document.querySelectorAll('[data-cf]').forEach(b=>b.onclick=()=>{S.cf=b.dataset.cf;render()})}
 /* Diario de entrenamiento: dureza 1-5, sensaciones 1-5 (semáforo) y comentario */
 const HARD=['','Muy suave','Suave','Normal','Duro','Muy duro'];
 const FEEL=[null,['#e53935','Muy malas'],['#fb8c00','Malas'],['#fdd835','Normales'],['#9ccc65','Buenas'],['#2e9d4f','Muy buenas']];
