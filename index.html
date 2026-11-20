@@ -431,11 +431,21 @@ function vDatos(){
  else{if(S.sub==='minimas'&&a.cat==='master')S.sub='resumen';({resumen:vRes,marcas:vMar,minimas:vMin,cal:vCal,norm:vNorm,ent:vEnt,val:vVal})[S.sub](a);$('#v').insertAdjacentHTML('afterbegin',ctrl)}
  $('#dn').onchange=e=>{S.aid=e.target.value||null;S.day=null;S.month=null;render()};
  document.querySelectorAll('[data-sub]').forEach(b=>b.onclick=()=>{S.sub=b.dataset.sub;S.day=null;render()})}
+/* Compartir la app (menú de compartir del móvil; si no existe, WhatsApp o copiar el enlace) */
+const APP_URL='https://cnsalou.github.io/zona-nadadores/';
+const SHARE_TXT='Zona Nadadores del C.N. Salou: tus marcas, mínimas, entrenamientos, Pulpines y calendario. Ábrela en el móvil y añádela a la pantalla de inicio (iPhone: Compartir → Añadir a pantalla de inicio; Android: menú ⋮ → Instalar aplicación). Entra con tu usuario y PIN.';
+async function shareApp(btn){
+ try{if(navigator.share){await navigator.share({title:'Zona Nadadores CN Salou',text:SHARE_TXT,url:APP_URL});return}}catch(e){if(e&&e.name==='AbortError')return}
+ const box=document.createElement('div');box.className='card stack';box.style.marginTop='8px';
+ box.innerHTML=`<b>Compartir la app</b><input readonly value="${APP_URL}" aria-label="Enlace de la app"><div class="row"><a class="btn" href="https://wa.me/?text=${encodeURIComponent(SHARE_TXT+' '+APP_URL)}" target="_blank" rel="noopener">WhatsApp</a><button class="btn ghost" type="button" data-cp>Copiar enlace</button></div>`;
+ btn.after(box);btn.remove();const cp=box.querySelector('[data-cp]');
+ cp.onclick=async()=>{try{await navigator.clipboard.writeText(APP_URL);cp.textContent='¡Copiado!'}catch(e){box.querySelector('input').select();cp.textContent='Selecciona y copia'}}}
+const shareBtn=()=>`<button class="btn ghost" type="button" data-share style="width:100%">📤 Compartir la app</button>`;
 function vHome(a){
  const coach=S.user.role==='coach',q=quoteOfWeek(),sal=coach?null:salowis(a,ym(new Date()));
  $('#v').innerHTML=`<div class="stack"><div class="hello"><h2>¡Hola, ${coach?'Entrenador/a':esc(a.name.split(' ')[0])}!</h2></div>
  <div class="card quote"><blockquote>«${esc(q[0])}»</blockquote><div class="mute">— <b>${esc(q[1])}</b>, ${esc(q[2])} · Frase de la semana</div></div>
- <div class="menu">${sections(coach).filter(t=>t[0]!=='inicio').map(t=>`<button class="mbtn" data-go="${t[0]}"><span class="ic" aria-hidden="true">${t[2]}</span><span><b>${t[1]}</b><small>${t[0]==='ent'&&sal?`🐙 ${sal.got} pulpines este mes`:t[3]}</small></span></button>`).join('')}</div>${coach?'<div id="wk"></div>':''}</div>`;if(coach){$('.menu').insertAdjacentHTML('beforebegin','<div id="ic"></div><div id="nf"></div>');inscCard();normCard()}
+ <div class="menu">${sections(coach).filter(t=>t[0]!=='inicio').map(t=>`<button class="mbtn" data-go="${t[0]}"><span class="ic" aria-hidden="true">${t[2]}</span><span><b>${t[1]}</b><small>${t[0]==='ent'&&sal?`🐙 ${sal.got} pulpines este mes`:t[3]}</small></span></button>`).join('')}</div>${coach?'<div id="wk"></div>':''}${shareBtn()}</div>`;document.querySelectorAll('[data-share]').forEach(b=>b.onclick=()=>shareApp(b));if(coach){$('.menu').insertAdjacentHTML('beforebegin','<div id="ic"></div><div id="nf"></div>');inscCard();normCard()}
  document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.go;render()});if(coach)weekCard()}
 /* Resumen semanal del entrenador: asistencia y valoraciones por grupo, pendientes y alertas de sensaciones */
 function weekDays(off){const t=new Date(TODAY+'T12:00:00');t.setDate(t.getDate()-((t.getDay()+6)%7)+7*off);return Array.from({length:7},(_,i)=>{const d=new Date(t);d.setDate(t.getDate()+i);return iso(d)})}
