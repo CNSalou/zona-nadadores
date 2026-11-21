@@ -323,8 +323,10 @@ const COIN=`<svg viewBox="0 0 64 64" aria-hidden="true"><defs><radialGradient id
 /* Días de entreno: lunes a jueves; Máster solo martes, miércoles y jueves */
 const isTrainDay=(d,cat)=>{const w=new Date(d+'T12:00:00').getDay();return cat==='master'?(w>=2&&w<=4):(w>=1&&w<=4)};
 const trainDaysTxt=cat=>cat==='master'?'martes a jueves':'lunes a jueves';
-const CATN={junior:'Junior',infantil:'Infantil',alevin:'Alevín',master:'Máster'};
-const CATS=['junior','infantil','alevin','master'];
+const CATN={junior:'Junior',infantil:'Infantil',alevin:'Alevín',benjamin:'Prebenjamín y Benjamín',master:'Máster'};
+const CATS=['junior','infantil','alevin','benjamin','master'];
+/* Prebenjamín (2018 y posteriores) y Benjamín (2016-2017) comparten grupo; cada nadador ve su categoría */
+const catOf=a=>a.cat==='benjamin'?(+a.year>=2018?'Prebenjamín':'Benjamín'):CATN[a.cat];
 const hasMins=a=>a.cat==='junior'||a.cat==='infantil';
 /* Pulpines: 1 por cada entrenamiento (L-J) en el que el entrenador marca «Asistió». Máximo = entrenamientos con lista del grupo.
    Para un nadador, el servidor marca con _g los días en que su grupo tuvo lista. */
@@ -402,7 +404,7 @@ function render(){
  const a=athlete(S.aid),coach=S.user.role==='coach';
  const tabs=sections(coach);
  $('#app').innerHTML=`<header class="top"><div class="wrap"><img class="brand" src="${LOGO}" alt="Logo del C.N. Salou"><h1>${coach?'Panel del entrenador':esc(a.name)}</h1>
- ${coach?'':`<span class="mute" style="color:var(--bg)">${CATN[a.cat]} · ${a.year}</span>`}
+ ${coach?'':`<span class="mute" style="color:var(--bg)">${catOf(a)} · ${a.year}</span>`}
  <button class="btn ghost" id="rl" title="Volver a leer el Excel">Actualizar</button><button class="btn ghost" id="out">Salir</button></div></header>
  <main class="wrap"><nav class="tabs" role="tablist">${tabs.map(t=>`<button class="tab" role="tab" aria-selected="${S.tab===t[0]}" data-t="${t[0]}">${t[1]}</button>`).join('')}</nav><section id="v"></section>
  <p class="mute" style="text-align:center;margin-top:20px">Datos del Excel leídos el ${esc(D.built)}</p></main>`;
@@ -429,7 +431,7 @@ function vDatos(){
  const ctrl=`<div class="card stack dsel" style="margin-bottom:12px"><h2>Datos nadadores</h2>
   <label for="dn">Nadador<select id="dn"><option value="">— Elige un nadador —</option>${opts}</select></label>
   ${a?`<div><div class="lbl">Apartado</div><div class="subs">${SUBS.filter(t=>!(t[0]==='minimas'&&a.cat==='master')).map(t=>`<button class="sub" data-sub="${t[0]}" aria-pressed="${S.sub===t[0]}"><span aria-hidden="true">${t[2]}</span> ${t[1]}</button>`).join('')}</div></div>
-  <div class="mute">${esc(a.name)} · ${CATN[a.cat]} · ${a.year}</div>`:''}</div>`;
+  <div class="mute">${esc(a.name)} · ${catOf(a)} · ${a.year}</div>`:''}</div>`;
  if(!a)$('#v').innerHTML=ctrl+'<p class="mute">Elige un nadador para consultar su resumen, entrenamientos, marcas, mínimas, calendario, normativas y valoraciones.</p>';
  else{if(S.sub==='minimas'&&a.cat==='master')S.sub='resumen';({resumen:vRes,marcas:vMar,minimas:vMin,cal:vCal,norm:vNorm,ent:vEnt,val:vVal})[S.sub](a);$('#v').insertAdjacentHTML('afterbegin',ctrl)}
  $('#dn').onchange=e=>{S.aid=e.target.value||null;S.day=null;S.month=null;render()};
@@ -501,7 +503,7 @@ function stat(m){if(m.ok===undefined)return['na','Sin mínima'];if(m.ok)return['
 const daysTo=d=>Math.round((new Date(d+'T12:00:00')-new Date(TODAY+'T12:00:00'))/864e5);
 const leftTxt=n=>n<=0?'Hoy':n===1?'Mañana':'En '+n+' días';
 function nextComps(a){return D.comps.filter(c=>c.start&&c.end>=TODAY&&relevant(c,a)).sort((x,y)=>x.start.localeCompare(y.start))}
-function relevant(c,a){const k=String(c.cat||'').toLowerCase(),y=String(a.year);if(a.cat==='master')return !!c.ms;if(c.ms)return false;if(a.cat==='junior')return /j[uú]nior|absolut/.test(k)||k.includes(y);if(a.cat==='infantil')return /infantil/.test(k)||k.includes(y);return /alev/.test(k)||k.includes(y)}
+function relevant(c,a){const k=String(c.cat||'').toLowerCase(),y=String(a.year);if(a.cat==='master')return !!c.ms;if(c.ms)return false;if(a.cat==='benjamin')return /benjam/.test(k)||k.includes(y);if(a.cat==='junior')return /j[uú]nior|absolut/.test(k)||k.includes(y);if(a.cat==='infantil')return /infantil/.test(k)||k.includes(y);return /alev/.test(k)||k.includes(y)}
 function attMonth(a){const days=trainDays(a.id),now=new Date(),mk=ym(now),n=new Date(now.getFullYear(),now.getMonth()+1,0).getDate(),off=(new Date(now.getFullYear(),now.getMonth(),1).getDay()+6)%7;let s=0,t=0;for(let d=1;d<=n;d++){const k=mk+'-'+String(d).padStart(2,'0');if(((off+d-1)%7)<4&&k<=TODAY){s++;if(days[k]&&days[k].r>0)t++}}return s?Math.round(t/s*100)+'%':'—'}
 function vRes(a){
  const b=best(a);
@@ -525,7 +527,7 @@ function vMar(a){
  $('#v').innerHTML=`<div class="card"><h2>Marcas</h2><p class="mute">Una marca por prueba y piscina. Las manuales se corrigen +0,29 s (50 m) o +0,19 s (resto).</p><div class="tw"><table><thead><tr><th>Prueba</th><th>Piscina</th><th class="r">Marca</th><th>Crono</th><th class="r">Corregida</th><th class="r">Puntos</th><th>Fecha</th><th>Lugar</th></tr></thead><tbody>
  ${b.map(m=>`<tr><td><b>${evName(m.ev)}</b></td><td>${m.pool} m</td><td class="r">${m.t}</td><td>${esc(m.ch)}</td><td class="r">${fmt(m.c)}</td><td class="r">${m.pts||'—'}</td><td>${fd(m.date)}</td><td>${esc(m.place||'')}</td></tr>`).join('')}</tbody></table></div></div>`}
 function vMin(a){
- if(!hasMins(a)){$('#v').innerHTML=`<div class="card"><h2>Mínimas</h2><p>${a.cat==='master'?'En categoría máster no hay tiempos mínimos.':'En categoría alevín no hay tiempos mínimos. Las pruebas se distribuyen por ligas y jornadas; consulta el calendario.'}</p></div>`;return}
+ if(!hasMins(a)){$('#v').innerHTML=`<div class="card"><h2>Mínimas</h2><p>${a.cat==='master'?'En categoría máster no hay tiempos mínimos.':(a.cat==='benjamin'?`En categoría ${catOf(a).toLowerCase()} no hay tiempos mínimos. Consulta tus competiciones en el calendario.`:'En categoría alevín no hay tiempos mínimos. Las pruebas se distribuyen por ligas y jornadas; consulta el calendario.')}</p></div>`;return}
  if(!S.mse)S.mse='inv';const se=S.mse,lab=SEASONS.find(x=>x[0]===se),comp=minComp(a,se),me=S.user.role!=='coach';
  const b=best(a).filter(m=>mInfo(m,se)),ok=b.filter(m=>mInfo(m,se).ok),close=b.filter(m=>!mInfo(m,se).ok).sort((u,v)=>mInfo(u,se).pct-mInfo(v,se).pct).slice(0,3);
  const row=m=>{const x=mInfo(m,se),[k,t]=stat2(x),p=x.ok?100:Math.max(4,100-x.pct*4);return `<div class="ev"><b>${evName(m.ev)}</b><div><div class="bar ${k}"><i style="width:${p}%"></i></div><div class="mute">${m.pool} m · ${fd(m.date)}</div></div><div style="text-align:right">${fmt(m.c)} / ${x.min}<br><span class="pill ${k}">${t}</span></div></div>`};
@@ -554,9 +556,9 @@ function vNorm(a){
  ${Object.values(seen).sort((x,y)=>(relevant(y,a)-relevant(x,a))||x.norm.localeCompare(y.norm)).map(c=>`<div class="row"><span class="pill ${relevant(c,a)?'ok':'na'}">${esc(c.norm)}</span><div class="sp"><b>${esc(c.name)}</b><br><span class="mute">${esc(c.cat)}</span></div>${NORMS[c.norm]?`<a href="https://www.natacio.cat/wp-json/files/ow-getFile?file=${NORMS[c.norm]}" target="_blank" rel="noopener">Abrir PDF</a>`:''}</div>`).join('')}</div>
  <div class="note" style="margin-top:12px">Las normativas pueden actualizarse. Ante cualquier duda, manda el documento vigente de la federación.</div></div>`}
 /* Calendario del entrenador: todas las competiciones (también Máster y club), con filtro por categoría */
-const CF=[['all','Todas'],['junior','Junior'],['infantil','Infantil'],['alevin','Alevín'],['master','Máster'],['club','Club']];
+const CF=[['all','Todas'],['junior','Junior'],['infantil','Infantil'],['alevin','Alevín'],['benjamin','PB y Benjamín'],['master','Máster'],['club','Club']];
 function compCats(c){if(c.ms)return ['master'];const k=String(c.cat||'').toLowerCase(),o=[];
- if(/j[uú]nior|absolut/.test(k))o.push('junior');if(/infantil/.test(k))o.push('infantil');if(/alev/.test(k))o.push('alevin');if(!c.norm)o.push('club');return o}
+ if(/j[uú]nior|absolut/.test(k))o.push('junior');if(/infantil/.test(k))o.push('infantil');if(/alev/.test(k))o.push('alevin');if(/benjam/.test(k))o.push('benjamin');if(!c.norm)o.push('club');return o}
 function vCalAll(){
  const f=S.cf||'all',ok=c=>f==='all'||compCats(c).includes(f);
  const list=D.comps.filter(c=>c.start&&ok(c)).sort((x,y)=>x.start.localeCompare(y.start)),undated=D.comps.filter(c=>!c.start&&c.ms&&ok(c));
@@ -763,7 +765,7 @@ function answer(raw){
  // Mínimas
  if(has(q,/minim|corte|clasific/)){
   const ses=has(q,/verano|estiu|summer/)?['ver']:has(q,/invierno|hivern|winter/)?['inv']:['inv','ver'];
-  if(a){if(!hasMins(a))return `En categoría ${CATN[a.cat].toLowerCase()} no hay tiempos mínimos.`;
+  if(a){if(!hasMins(a))return `En categoría ${catOf(a).toLowerCase()} no hay tiempos mínimos.`;
    return ses.map(se=>{let b=best(a).filter(m=>mInfo(m,se));if(ev.d)b=b.filter(m=>m.ev.startsWith(ev.d)&&(!ev.st||m.ev.endsWith(ev.st)));const lab=se==='inv'?'❄️ Invierno':'☀️ Verano';
     if(!b.length)return `${lab} · **${minComp(a,se)}**: no ${me?'tienes':'tiene'} marcas con mínima${ev.d?' en esa prueba':''}.`;
     const ok=b.filter(m=>mInfo(m,se).ok),nr=b.filter(m=>!mInfo(m,se).ok).sort((x,y)=>mInfo(x,se).pct-mInfo(y,se).pct);
