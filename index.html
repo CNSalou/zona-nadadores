@@ -412,17 +412,19 @@ function render(){
  $('#rl').onclick=()=>loadAll();
  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;render()});
  if(!coach&&S.tab==='asis')S.tab='ent';
- if(!coach&&S.tab==='minimas'&&a.cat==='master')S.tab='resumen';
+ if(!coach&&S.tab!=='inicio'&&!subsFor(a).some(t=>t[0]===S.tab))S.tab='resumen';
  if(coach&&SUBS.some(t=>t[0]===S.tab)){S.sub=S.tab;S.tab='datos'}
- ({inicio:vHome,datos:vDatos,asis:vAsis,prog:vProg,ccal:vCalAll,resumen:vRes,marcas:vMar,minimas:vMin,cal:vCal,norm:vNorm,ent:vEnt,val:vVal})[S.tab](a);
+ ({inicio:vHome,datos:vDatos,asis:vAsis,prog:vProg,ccal:vCalAll,resumen:vRes,marcas:vMar,hist:vHist,minimas:vMin,cal:vCal,norm:vNorm,ent:vEnt,val:vVal})[S.tab](a);
  window.scrollTo(0,same?y0:0);chatButton();
 }
 /* Apartados: [id, nombre, icono, descripción] */
 /* Apartados del nadador (también los consulta el entrenador desde «Datos nadadores") */
-const SUBS=[['resumen','Resumen','📊','Tu temporada de un vistazo'],['ent','Entrenamiento','💪','Valora tus entrenos y suma Pulpines'],['marcas','Marcas','⏱️','Todas tus mejores marcas'],['minimas','Mínimas','🎯','Lo cerca que estás de cada mínima'],['cal','Calendario','📅','Competiciones y ligas'],['norm','Normativas','📄','Documentos de la federación'],['val','Valoraciones','⭐','Lo que opina el entrenador']];
+const SUBS=[['resumen','Resumen','📊','Tu temporada de un vistazo'],['ent','Entrenamiento','💪','Valora tus entrenos y suma Pulpines'],['marcas','Marcas','⏱️','Todas tus mejores marcas'],['hist','Historial','🔎','Todas tus marcas y si están vigentes'],['minimas','Mínimas','🎯','Lo cerca que estás de cada mínima'],['cal','Calendario','📅','Competiciones y ligas'],['norm','Normativas','📄','Documentos de la federación'],['val','Valoraciones','⭐','Lo que opina el entrenador']];
+/* Apartados que ve cada categoría: Mínimas no para Máster; Historial solo para Máster */
+const subsFor=a=>SUBS.filter(t=>!(t[0]==='minimas'&&a&&a.cat==='master')&&!(t[0]==='hist'&&!(a&&a.cat==='master')));
 /* Pestañas: [id, nombre, icono, descripción] */
 function sections(coach){
- if(!coach){const a=athlete(S.aid);return [['inicio','Inicio','🏠',''],...SUBS.filter(t=>!(t[0]==='minimas'&&a&&a.cat==='master'))]}
+ if(!coach){const a=athlete(S.aid);return [['inicio','Inicio','🏠',''],...subsFor(a)]}
  return [['inicio','Inicio','🏠',''],['asis','Asistencia','📋','Pasar lista, Pulpines y registros'],['prog','Programación entrenamientos','🗓️','El archivo de entrenamientos'],['ccal','Calendario','📅','Todas las competiciones, también las Máster'],['datos','Datos nadadores','👥','Elige un nadador y consulta sus apartados']]}
 /* Entrenador: elegir nadador y apartado */
 function vDatos(){
@@ -430,10 +432,10 @@ function vDatos(){
  const opts=CATS.map(c=>`<optgroup label="${CATN[c]}">${D.athletes.filter(x=>x.cat===c).map(x=>`<option value="${esc(x.id)}" ${x.id===S.aid?'selected':''}>${esc(x.name)}${x.user?'':' (sin usuario)'}</option>`).join('')}</optgroup>`).join('');
  const ctrl=`<div class="card stack dsel" style="margin-bottom:12px"><h2>Datos nadadores</h2>
   <label for="dn">Nadador<select id="dn"><option value="">— Elige un nadador —</option>${opts}</select></label>
-  ${a?`<div><div class="lbl">Apartado</div><div class="subs">${SUBS.filter(t=>!(t[0]==='minimas'&&a.cat==='master')).map(t=>`<button class="sub" data-sub="${t[0]}" aria-pressed="${S.sub===t[0]}"><span aria-hidden="true">${t[2]}</span> ${t[1]}</button>`).join('')}</div></div>
+  ${a?`<div><div class="lbl">Apartado</div><div class="subs">${subsFor(a).map(t=>`<button class="sub" data-sub="${t[0]}" aria-pressed="${S.sub===t[0]}"><span aria-hidden="true">${t[2]}</span> ${t[1]}</button>`).join('')}</div></div>
   <div class="mute">${esc(a.name)} · ${catOf(a)} · ${a.year}</div>`:''}</div>`;
  if(!a)$('#v').innerHTML=ctrl+'<p class="mute">Elige un nadador para consultar su resumen, entrenamientos, marcas, mínimas, calendario, normativas y valoraciones.</p>';
- else{if(S.sub==='minimas'&&a.cat==='master')S.sub='resumen';({resumen:vRes,marcas:vMar,minimas:vMin,cal:vCal,norm:vNorm,ent:vEnt,val:vVal})[S.sub](a);$('#v').insertAdjacentHTML('afterbegin',ctrl)}
+ else{if(!subsFor(a).some(t=>t[0]===S.sub))S.sub='resumen';({resumen:vRes,marcas:vMar,hist:vHist,minimas:vMin,cal:vCal,norm:vNorm,ent:vEnt,val:vVal})[S.sub](a);$('#v').insertAdjacentHTML('afterbegin',ctrl)}
  $('#dn').onchange=e=>{S.aid=e.target.value||null;S.day=null;S.month=null;render()};
  document.querySelectorAll('[data-sub]').forEach(b=>b.onclick=()=>{S.sub=b.dataset.sub;S.day=null;render()})}
 /* Compartir la app (menú de compartir del móvil; si no existe, WhatsApp o copiar el enlace) */
@@ -573,6 +575,45 @@ function vCalAll(){
  ${undated.length?`<div class="note" style="margin-top:12px">📅 Máster, pendiente de fecha y confirmación: ${undated.map(c=>`<b>${esc(c.name)}</b> (${esc(c.venue)} · ${esc(c.pool)})`).join(' · ')}</div>`:''}</div>
  ${lig.length?`<div class="card" style="margin-top:12px"><h3>Ligas</h3><div class="tw"><table><thead><tr><th>Liga</th><th>Jornada</th><th>Del</th><th>Al</th><th>Entrega de tiempos</th><th>Publicación</th></tr></thead><tbody>${lig.map(l=>`<tr class="${(l.end||l.start)<TODAY?'past':''}"><td>${esc(l.cat||l.name)}</td><td>${esc(l.j)}</td><td>${fd(l.start)}</td><td>${fd(l.end)}</td><td>${fd(l.deadline)}</td><td>${fd(l.pub)}</td></tr>`).join('')}</tbody></table></div></div>`:''}`;
  document.querySelectorAll('[data-cf]').forEach(b=>b.onclick=()=>{S.cf=b.dataset.cf;render()})}
+/* Historial Máster: todos los resultados de la RFEN, con filtros y vigencia.
+   Vigencia: la marca no puede tener más de 2 años (criterio del club para los campeonatos de Catalunya y de España).
+   Además se indica si entra en el período de marcas del Cto. de España Open de Invierno Máster (RFEN 2026-27). */
+const HIST={},VIG_YEARS=2,RFEN_INV={from:'2025-12-04',to:'2027-01-17',name:'Cto. España Invierno'};
+const vigFrom=()=>{const d=new Date(TODAY+'T12:00:00');d.setFullYear(d.getFullYear()-VIG_YEARS);return iso(d)};
+function vHist(a){
+ const h=HIST[a.name];
+ if(!h){$('#v').innerHTML='<div class="card"><p class="mute">Cargando el historial de la RFEN…</p></div>';
+  api('getHist',TOKEN,a.name).then(r=>{HIST[a.name]=(r&&r.rows||[]).map(x=>({ev:x[0],t:x[1],s:tsecC(x[1]),pool:x[2],ch:x[3],date:x[4],place:x[5],parc:!!x[6]}));if((S.tab==='hist'||S.sub==='hist'))render()})
+   .catch(e=>{const v=$('#v');if(v)v.innerHTML=`<div class="card"><p>No se ha podido cargar el historial: ${esc(errMsg(e))}</p></div>`});return}
+ const f=S.hf||(S.hf={d:'',s:'',p:'',v:false,o:'fecha'}),vf=vigFrom();
+ const ok=m=>{const g=m.ev.match(/^(\d+)([LEBMS])$/);return g&&(!f.d||g[1]===f.d)&&(!f.s||g[2]===f.s)&&(!f.p||String(m.pool)===f.p)&&(!f.v||m.date>=vf)};
+ const ct=m=>m.s+corr(m);
+ let L=h.filter(ok);L.sort(f.o==='tiempo'?((x,y)=>evSort(x.ev,y.ev)||ct(x)-ct(y)):((x,y)=>(y.date||'').localeCompare(x.date||'')||evSort(x.ev,y.ev)));
+ const dists=[...new Set(h.map(m=>+m.ev.match(/^\d+/)[0]))].sort((x,y)=>x-y);
+ const sel=(id,lab,opts,v)=>`<label for="${id}">${lab}<select id="${id}">${opts.map(o=>`<option value="${o[0]}" ${String(v)===String(o[0])?'selected':''}>${o[1]}</option>`).join('')}</select></label>`;
+ const one=f.d&&f.s;let best='';
+ if(one){const all=h.filter(m=>m.ev===f.d+f.s&&(!f.p||String(m.pool)===f.p)&&!m.parc),vig=all.filter(m=>m.date>=vf);const b=x=>x.length?x.reduce((p,q)=>ct(q)<ct(p)?q:p):null,bv=b(vig),ba=b(all);
+  best=`<div class="grid g2" style="margin-bottom:12px"><div class="card tile"><div class="n" style="font-size:28px">${bv?esc(bv.t):'—'}</div><div class="l">Mejor marca <b class="ok">vigente</b> en ${esc(evName(f.d+f.s))}${f.p?' · piscina '+f.p+' m':''}${bv?` · ${bv.pool} m · ${fd(bv.date)}${bv.ch==='Manual'?' · manual':''}`:' · ninguna en los últimos 2 años'}</div></div><div class="card tile"><div class="n" style="font-size:28px">${ba?esc(ba.t):'—'}</div><div class="l">Mejor marca de siempre${ba?` · ${ba.pool} m · ${fd(ba.date)}`:''}${ba&&ba.date<vf?' · <span class="far">ya no vigente</span>':''}</div></div></div>`}
+ const vigTag=m=>m.date>=vf?'<span class="pill ok">Vigente</span>':'<span class="pill far">No vigente</span>';
+ const rfTag=m=>m.date>=RFEN_INV.from&&m.date<=RFEN_INV.to?` <span class="dleft" title="Dentro del período de marcas del ${RFEN_INV.name} (${fd(RFEN_INV.from)} – ${fd(RFEN_INV.to)})">🇪🇸 ${RFEN_INV.name}</span>`:'';
+ $('#v').innerHTML=`<div class="card stack" style="margin-bottom:12px"><h2>Historial de marcas</h2>
+  <p class="mute" style="margin:0">Todos tus resultados en la RFEN (${h.length}). Para los campeonatos de Catalunya y de España la marca <b>no puede tener más de 2 años</b>: son vigentes las conseguidas desde el ${fd(vf)}. 🇪🇸 = dentro del período de marcas del Cto. de España Open de Invierno Máster (${fd(RFEN_INV.from)} – ${fd(RFEN_INV.to)}).</p>
+  <form class="grid g2" id="hf" onsubmit="return false" style="gap:10px">
+   ${sel('hd','Distancia',[['','Todas'],...dists.map(d=>[d,d+' m'])],f.d)}
+   ${sel('hs','Estilo',[['','Todos'],...'LEBMS'.split('').map(k=>[k,STYN[k]])],f.s)}
+   ${sel('hp','Piscina',[['','25 y 50 m'],['25','25 m'],['50','50 m']],f.p)}
+   ${sel('ho','Ordenar por',[['fecha','Fecha (más recientes)'],['tiempo','Prueba y tiempo']],f.o)}
+   <label class="row" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="hv" ${f.v?'checked':''} style="width:auto"> Solo marcas vigentes</label>
+   <button class="btn ghost" type="button" id="hr">Quitar filtros</button>
+  </form></div>
+ ${best}
+ <div class="card"><div class="mute" style="margin-bottom:6px">${L.length} ${L.length===1?'resultado':'resultados'}</div><div class="tw"><table><thead><tr><th>Fecha</th><th>Prueba</th><th>Marca</th><th>Vigencia</th><th>Piscina</th><th>Crono</th><th>Lugar</th></tr></thead><tbody>
+ ${L.slice(0,400).map(m=>`<tr class="${m.date<vf?'past':''}"><td>${fd(m.date)}</td><td><b>${esc(evName(m.ev))}</b>${m.parc?' <span class="mute">(parcial)</span>':''}</td><td><b>${esc(m.t)}</b></td><td>${vigTag(m)}${rfTag(m)}</td><td>${m.pool} m</td><td>${m.ch==='Manual'?'Manual':'Electr.'}</td><td>${esc(m.place)}</td></tr>`).join('')||'<tr><td colspan="7" class="mute">No hay marcas con estos filtros.</td></tr>'}
+ </tbody></table></div>${L.length>400?'<p class="mute">Se muestran las 400 primeras. Usa los filtros para afinar.</p>':''}
+ <p class="mute" style="margin:8px 0 0">Las marcas manuales se comparan sumando 0,29 s (50 m) o 0,19 s (resto), como indica la RFEN.</p></div>`;
+ const upd=()=>{S.hf={d:$('#hd').value,s:$('#hs').value,p:$('#hp').value,o:$('#ho').value,v:$('#hv').checked};render()};
+ ['hd','hs','hp','ho','hv'].forEach(id=>$('#'+id).onchange=upd);$('#hr').onclick=()=>{S.hf=null;render()}}
+function tsecC(t){const m=String(t).match(/^(?:(\d+):)?(\d+(?:\.\d+)?)$/);return m?(+(m[1]||0))*60+(+m[2]):null}
 /* Diario de entrenamiento: dureza 1-5, sensaciones 1-5 (semáforo) y comentario */
 const HARD=['','Muy suave','Suave','Normal','Duro','Muy duro'];
 const FEEL=[null,['#e53935','Muy malas'],['#fb8c00','Malas'],['#fdd835','Normales'],['#9ccc65','Buenas'],['#2e9d4f','Muy buenas']];

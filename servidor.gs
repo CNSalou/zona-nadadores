@@ -28,7 +28,7 @@ const BASE = {"M|25|50L":19.9,"M|50|50L":20.91,"M|25|100L":44.84,"M|50|100L":46.
  * ========================================================================= */
 
 // La app (GitHub Pages) llama aquí con POST {fn, args}. Respuesta: {ok:true, data} o {ok:false, error}.
-const API = { login: login, getData: getData, saveTrain: saveTrain, saveAtt: saveAtt, saveEval: saveEval, delEval: delEval, getProg: getProg };
+const API = { login: login, getData: getData, saveTrain: saveTrain, saveAtt: saveAtt, saveEval: saveEval, delEval: delEval, getProg: getProg, getHist: getHist };
 
 function doPost(e) {
   let out;
@@ -213,6 +213,23 @@ function getData(token) {
     att: groupAtt(st.att, me, D.athletes),
     rank: teamRank(st.att, st.train, D.athletes, me.id)
   });
+}
+
+/* Historial completo de resultados RFEN de los Máster (pestaña «Máster - Historial»).
+   Un nadador solo recibe el suyo; el entrenador, el del nadador que pida (por nombre). */
+const T_HIST = 'Máster - Historial';
+function getHist(token, name) {
+  const s = auth(token);
+  const who = normName(s.role === 'coach' ? String(name || '') : s.name);
+  if (!who) return { rows: [] };
+  const c = CacheService.getScriptCache(), key = 'H_' + Utilities.base64EncodeWebSafe(who).slice(0, 200);
+  const hit = c.get(key); if (hit) return JSON.parse(hit);
+  const sh = SpreadsheetApp.openById(CFG.MARCAS_ID).getSheetByName(T_HIST);
+  const rows = sh ? sh.getDataRange().getDisplayValues().slice(1) : [];
+  const out = { rows: rows.filter(r => r[0] && normName(r[0]) === who && tsec(r[4]) !== null)
+    .map(r => [r[3].trim().toUpperCase(), r[4].trim(), parseInt(r[5], 10), r[6].trim(), dstr(r[7]), r[8] || '', /^s/i.test(r[9] || '') ? 1 : 0]) };
+  try { const j = JSON.stringify(out); if (j.length < 95000) c.put(key, j, CFG.CACHE_SEG); } catch (e) {}
+  return out;
 }
 
 // Para un nadador: solo su propia asistencia y una marca _g en los días en que su grupo tuvo lista (para calcular los salowis).
