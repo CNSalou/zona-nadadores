@@ -227,7 +227,7 @@ function getHist(token, name) {
   const sh = SpreadsheetApp.openById(CFG.MARCAS_ID).getSheetByName(T_HIST);
   const rows = sh ? sh.getDataRange().getDisplayValues().slice(1) : [];
   const out = { rows: rows.filter(r => r[0] && normName(r[0]) === who && tsec(r[4]) !== null)
-    .map(r => [r[3].trim().toUpperCase(), r[4].trim(), parseInt(r[5], 10), r[6].trim(), dstr(r[7]), r[8] || '', /^s/i.test(r[9] || '') ? 1 : 0]) };
+    .map(r => [r[3].trim().toUpperCase(), r[4].trim(), parseInt(r[5], 10), r[6].trim(), dstr(r[7]), r[8] || '', /^s/i.test(r[9] || '') ? 1 : 0, /^s/i.test(r[10] || '') ? 1 : 0]) };
   try { const j = JSON.stringify(out); if (j.length < 95000) c.put(key, j, CFG.CACHE_SEG); } catch (e) {}
   return out;
 }

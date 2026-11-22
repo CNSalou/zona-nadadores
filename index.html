@@ -94,6 +94,7 @@ td.r,th.r{text-align:right}
 .dleft{font-size:12px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:1px 8px;margin-left:4px;white-space:nowrap}
 .wk table{width:100%;font-size:15px}.wk td,.wk th{padding:8px 4px}.wk td,.wk th{text-align:center}.wk td:first-child,.wk th:first-child{text-align:left}
 .alist div.nfi{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}.alist div.nfi.new{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,var(--card))}
+.nfch{display:block;margin-top:4px;font-size:14px;color:var(--ink);background:var(--card);border-left:3px solid var(--accent);padding:4px 8px;border-radius:4px}
 .alist a.nfi{display:flex;justify-content:space-between;gap:8px;text-decoration:none;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink)}.alist a.nfi.new{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 10%,var(--card))}.alist a.nfi>span:last-child{color:var(--accent);font-weight:700;white-space:nowrap}
 .alist{display:flex;flex-direction:column;gap:6px}.alist button{display:flex;justify-content:space-between;gap:8px;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink)}
 .alist button span:last-child{color:var(--mute);font-size:14px;white-space:nowrap}
@@ -263,7 +264,11 @@ async function loadNormFeed(){if(NF.items||NF.busy||NF.err)return;NF.busy=true;
    try{localStorage.setItem('cnsalou_nf',JSON.stringify({t:Date.now(),items:NF.items}))}catch(e){}}}
  catch(e){NF.err=true}
  NF.busy=false;if(S.tab==='inicio'&&S.user&&S.user.role==='coach'){const w=$('#nf');if(w)normCard()}}
-function normCard(){const el=$('#nf');if(!el)return;loadNormFeed();
+/* Resúmenes de cambios de normativas (los escribe la tarea diaria en cambios-normativas.json) */
+const NCH={d:null,busy:false};
+function loadNormChanges(){if(NCH.d||NCH.busy)return;NCH.busy=true;fetch('cambios-normativas.json?h='+Math.floor(Date.now()/36e5),{cache:'no-store'}).then(r=>r.json()).then(j=>{NCH.d=(j&&j.cambios)||{}}).catch(()=>{NCH.d={}}).finally(()=>{NCH.busy=false;normCard()})}
+const normChange=x=>{const L=(NCH.d||{})[x.id]||[];return L.find(c=>c.fecha===x.date)||null};
+function normCard(){const el=$('#nf');if(!el)return;loadNormFeed();loadNormChanges();
  if(!NF.items){el.innerHTML=NF.err?'':'<div class="card"><p class="mute" style="margin:0">Consultando novedades de normativas de la FCN…</p></div>';return}
  let last='';try{last=localStorage.getItem('cnsalou_nf_seen')||''}catch(e){}
  const recent=NF.items.filter(x=>!nfHidden(x.title)&&(new Date(TODAY)-new Date(x.date))/864e5<=21).slice(0,12),nw=recent.filter(x=>x.ts>last);
@@ -271,8 +276,8 @@ function normCard(){const el=$('#nf');if(!el)return;loadNormFeed();
  const uses=c=>{if(!/^N\d+$/.test(c))return '';const x=D.comps.filter(k=>k.norm===c);return x.length?x.map(k=>k.name).join(', '):''};
  const nice=t=>t.replace(/^(NOVA\s+)?ACT\.\s*/i,'').replace(/^Normatives?\s+MS.*?\d{2}-\d{2}\s*-\s*/i,'').replace(/^(NOVA\s+)?ACT\.\s*/i,'');
  el.innerHTML=`<div class="card stack" ${nw.length?'style="border:2px solid var(--warn)"':''}><div class="row"><h3 class="sp">📢 Normativas FCN${nw.length?` <span class="dleft" style="color:var(--warn);border-color:var(--warn)">${nw.length} ${nw.length===1?'novedad':'novedades'}</span>`:''}</h3>${nw.length?'<button class="btn ghost" id="nfok">Marcar como vistas</button>':''}</div>
-  ${recent.length?`<div class="alist">${recent.map(x=>{const c=codeOf(x.title),u=uses(c),isNew=x.ts>last;return `<a class="nfi${isNew?' new':''}" href="${fcnFile(x.id)}" target="_blank" rel="noopener"><span><b>${isNew?'🆕 ':''}${esc(nice(x.title))}</b><br><span class="mute">${x.sec} · ${/^NOVA|nova/i.test(x.title)?'publicada':'actualizada'} el ${fd(x.date)}${u?' · afecta a: '+esc(u):''}</span></span><span>PDF ›</span></a>`}).join('')}</div>`:'<p class="mute" style="margin:0">Sin cambios en las normativas en las últimas 3 semanas.</p>'}
-  <p class="mute" style="margin:0">Novedades de las secciones Natació y Màsters de la web de la FCN (últimas 3 semanas).</p></div>`;
+  ${recent.length?`<div class="alist">${recent.map(x=>{const c=codeOf(x.title),u=uses(c),isNew=x.ts>last;return `<a class="nfi${isNew?' new':''}" href="${fcnFile(x.id)}" target="_blank" rel="noopener"><span><b>${isNew?'🆕 ':''}${esc(nice(x.title))}</b><br><span class="mute">${x.sec} · ${/^NOVA|nova/i.test(x.title)?'publicada':'actualizada'} el ${fd(x.date)}${u?' · afecta a: '+esc(u):''}</span>${(()=>{const c=normChange(x);return c?`<span class="nfch">📝 ${esc(c.resumen)}</span>`:''})()}</span><span>PDF ›</span></a>`}).join('')}</div>`:'<p class="mute" style="margin:0">Sin cambios en las normativas en las últimas 3 semanas.</p>'}
+  <p class="mute" style="margin:0">Novedades de las secciones Natació y Màsters de la web de la FCN (últimas 3 semanas). 📝 = resumen de lo que ha cambiado respecto a la versión anterior (desde el 22/11/2026).</p></div>`;
  const b=$('#nfok');if(b)b.onclick=()=>{try{localStorage.setItem('cnsalou_nf_seen',NF.items[0].ts)}catch(e){}normCard()}}
 const NORMS={N09:22519,N10:22520,N20:22530,N21:22531,N22:22532,N24:22534,N25:22535,N26:22536,N27:22795,N28:22796};
 const STY={L:0,E:1,B:2,M:3,S:4},STYN={L:'Libre',E:'Espalda',B:'Braza',M:'Mariposa',S:'Estilos'};
@@ -583,36 +588,38 @@ const vigFrom=()=>{const d=new Date(TODAY+'T12:00:00');d.setFullYear(d.getFullYe
 function vHist(a){
  const h=HIST[a.name];
  if(!h){$('#v').innerHTML='<div class="card"><p class="mute">Cargando el historial de la RFEN…</p></div>';
-  api('getHist',TOKEN,a.name).then(r=>{HIST[a.name]=(r&&r.rows||[]).map(x=>({ev:x[0],t:x[1],s:tsecC(x[1]),pool:x[2],ch:x[3],date:x[4],place:x[5],parc:!!x[6]}));if((S.tab==='hist'||S.sub==='hist'))render()})
+  api('getHist',TOKEN,a.name).then(r=>{HIST[a.name]=(r&&r.rows||[]).map(x=>({ev:x[0],t:x[1],s:tsecC(x[1]),pool:x[2],ch:x[3],date:x[4],place:x[5],parc:!!x[6],rel:!!x[7]}));if((S.tab==='hist'||S.sub==='hist'))render()})
    .catch(e=>{const v=$('#v');if(v)v.innerHTML=`<div class="card"><p>No se ha podido cargar el historial: ${esc(errMsg(e))}</p></div>`});return}
- const f=S.hf||(S.hf={d:'',s:'',p:'',v:false,o:'fecha'}),vf=vigFrom();
- const ok=m=>{const g=m.ev.match(/^(\d+)([LEBMS])$/);return g&&(!f.d||g[1]===f.d)&&(!f.s||g[2]===f.s)&&(!f.p||String(m.pool)===f.p)&&(!f.v||m.date>=vf)};
+ const f=S.hf||(S.hf={d:'',s:'',p:'',v:'',t:'',o:'fecha'}),vf=vigFrom();
+ const vCAT=m=>m.date>=vf,vESP=m=>m.date>=RFEN_INV.from&&m.date<=RFEN_INV.to;
+ const ok=m=>{const g=m.ev.match(/^(\d+)([LEBMS])$/);return g&&(!f.d||g[1]===f.d)&&(!f.s||g[2]===f.s)&&(!f.p||String(m.pool)===f.p)&&(!f.v||(f.v==='cat'?vCAT(m):f.v==='esp'?vESP(m):!vCAT(m)&&!vESP(m)))&&(!f.t||(f.t==='parc'?m.parc:f.t==='rel'?m.rel:!m.parc&&!m.rel))};
  const ct=m=>m.s+corr(m);
  let L=h.filter(ok);L.sort(f.o==='tiempo'?((x,y)=>evSort(x.ev,y.ev)||ct(x)-ct(y)):((x,y)=>(y.date||'').localeCompare(x.date||'')||evSort(x.ev,y.ev)));
  const dists=[...new Set(h.map(m=>+m.ev.match(/^\d+/)[0]))].sort((x,y)=>x-y);
  const sel=(id,lab,opts,v)=>`<label for="${id}">${lab}<select id="${id}">${opts.map(o=>`<option value="${o[0]}" ${String(v)===String(o[0])?'selected':''}>${o[1]}</option>`).join('')}</select></label>`;
  const one=f.d&&f.s;let best='';
- if(one){const all=h.filter(m=>m.ev===f.d+f.s&&(!f.p||String(m.pool)===f.p)&&!m.parc),vig=all.filter(m=>m.date>=vf);const b=x=>x.length?x.reduce((p,q)=>ct(q)<ct(p)?q:p):null,bv=b(vig),ba=b(all);
-  best=`<div class="grid g2" style="margin-bottom:12px"><div class="card tile"><div class="n" style="font-size:28px">${bv?esc(bv.t):'—'}</div><div class="l">Mejor marca <b class="ok">vigente</b> en ${esc(evName(f.d+f.s))}${f.p?' · piscina '+f.p+' m':''}${bv?` · ${bv.pool} m · ${fd(bv.date)}${bv.ch==='Manual'?' · manual':''}`:' · ninguna en los últimos 2 años'}</div></div><div class="card tile"><div class="n" style="font-size:28px">${ba?esc(ba.t):'—'}</div><div class="l">Mejor marca de siempre${ba?` · ${ba.pool} m · ${fd(ba.date)}`:''}${ba&&ba.date<vf?' · <span class="far">ya no vigente</span>':''}</div></div></div>`}
- const vigTag=m=>m.date>=vf?'<span class="pill ok">Vigente</span>':'<span class="pill far">No vigente</span>';
- const rfTag=m=>m.date>=RFEN_INV.from&&m.date<=RFEN_INV.to?` <span class="dleft" title="Dentro del período de marcas del ${RFEN_INV.name} (${fd(RFEN_INV.from)} – ${fd(RFEN_INV.to)})">🇪🇸 ${RFEN_INV.name}</span>`:'';
+ if(one){const all=h.filter(m=>m.ev===f.d+f.s&&(!f.p||String(m.pool)===f.p));const b=x=>x.length?x.reduce((p,q)=>ct(q)<ct(p)?q:p):null,bc=b(all.filter(vCAT)),be=b(all.filter(vESP)),ba=b(all);
+  const tile=(m,lab,extra)=>`<div class="card tile"><div class="n" style="font-size:26px">${m?esc(m.t):'—'}</div><div class="l">${lab}${m?` · ${m.pool} m · ${fd(m.date)}${m.ch==='Manual'?' · manual':''}${m.parc?' · parcial':''}${m.rel?' · 1.ª posta relevo':''}`:' · ninguna'}${extra&&m?extra(m):''}</div></div>`;
+  best=`<div class="grid g2" style="margin-bottom:12px">${tile(bc,'Mejor marca <b class="ok">Vigent CAT</b>')}${tile(be,'Mejor marca <b class="ok">Vigente ESP</b>')}${tile(ba,'Mejor marca de siempre',m=>!vCAT(m)&&!vESP(m)?' · <span class="far">no vigente</span>':'')}</div>`}
+ const vigTag=m=>(vCAT(m)?'<span class="pill ok" title="Menos de 2 años: válida para el Campionat de Catalunya">Vigent CAT</span> ':'')+(vESP(m)?`<span class="pill ok" title="Dentro del período del ${RFEN_INV.name} (${fd(RFEN_INV.from)} – ${fd(RFEN_INV.to)})">Vigente ESP</span>`:'')+(!vCAT(m)&&!vESP(m)?'<span class="pill far">No vigente</span>':'');
  $('#v').innerHTML=`<div class="card stack" style="margin-bottom:12px"><h2>Historial de marcas</h2>
-  <p class="mute" style="margin:0">Todos tus resultados en la RFEN (${h.length}). Para los campeonatos de Catalunya y de España la marca <b>no puede tener más de 2 años</b>: son vigentes las conseguidas desde el ${fd(vf)}. 🇪🇸 = dentro del período de marcas del Cto. de España Open de Invierno Máster (${fd(RFEN_INV.from)} – ${fd(RFEN_INV.to)}).</p>
+  <p class="mute" style="margin:0">Todos tus resultados en la RFEN (${h.length}), incluidos los parciales y las primeras postas de relevo.<br><b>Vigent CAT</b>: marca de menos de 2 años (desde el ${fd(vf)}), válida para el Campionat de Catalunya.<br><b>Vigente ESP</b>: dentro del período de marcas del ${RFEN_INV.name} Open Máster (${fd(RFEN_INV.from)} – ${fd(RFEN_INV.to)}).</p>
   <form class="grid g2" id="hf" onsubmit="return false" style="gap:10px">
    ${sel('hd','Distancia',[['','Todas'],...dists.map(d=>[d,d+' m'])],f.d)}
    ${sel('hs','Estilo',[['','Todos'],...'LEBMS'.split('').map(k=>[k,STYN[k]])],f.s)}
    ${sel('hp','Piscina',[['','25 y 50 m'],['25','25 m'],['50','50 m']],f.p)}
    ${sel('ho','Ordenar por',[['fecha','Fecha (más recientes)'],['tiempo','Prueba y tiempo']],f.o)}
-   <label class="row" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="hv" ${f.v?'checked':''} style="width:auto"> Solo marcas vigentes</label>
+   ${sel('hv','Vigencia',[['','Todas'],['cat','Vigent CAT'],['esp','Vigente ESP'],['no','No vigentes']],f.v)}
+   ${sel('ht','Tipo de marca',[['','Todas'],['comp','Prueba completa'],['parc','Solo parciales'],['rel','Solo 1.ª posta de relevo']],f.t)}
    <button class="btn ghost" type="button" id="hr">Quitar filtros</button>
   </form></div>
  ${best}
  <div class="card"><div class="mute" style="margin-bottom:6px">${L.length} ${L.length===1?'resultado':'resultados'}</div><div class="tw"><table><thead><tr><th>Fecha</th><th>Prueba</th><th>Marca</th><th>Vigencia</th><th>Piscina</th><th>Crono</th><th>Lugar</th></tr></thead><tbody>
- ${L.slice(0,400).map(m=>`<tr class="${m.date<vf?'past':''}"><td>${fd(m.date)}</td><td><b>${esc(evName(m.ev))}</b>${m.parc?' <span class="mute">(parcial)</span>':''}</td><td><b>${esc(m.t)}</b></td><td>${vigTag(m)}${rfTag(m)}</td><td>${m.pool} m</td><td>${m.ch==='Manual'?'Manual':'Electr.'}</td><td>${esc(m.place)}</td></tr>`).join('')||'<tr><td colspan="7" class="mute">No hay marcas con estos filtros.</td></tr>'}
+ ${L.slice(0,400).map(m=>`<tr class="${!vCAT(m)&&!vESP(m)?'past':''}"><td>${fd(m.date)}</td><td><b>${esc(evName(m.ev))}</b>${m.parc?' <span class="pill na" title="Tiempo de paso dentro de una prueba más larga">Parcial</span>':''}${m.rel?' <span class="pill na" title="Primera posta de un relevo">Relevo</span>':''}</td><td><b>${esc(m.t)}</b></td><td>${vigTag(m)}</td><td>${m.pool} m</td><td>${m.ch==='Manual'?'Manual':'Electr.'}</td><td>${esc(m.place)}</td></tr>`).join('')||'<tr><td colspan="7" class="mute">No hay marcas con estos filtros.</td></tr>'}
  </tbody></table></div>${L.length>400?'<p class="mute">Se muestran las 400 primeras. Usa los filtros para afinar.</p>':''}
  <p class="mute" style="margin:8px 0 0">Las marcas manuales se comparan sumando 0,29 s (50 m) o 0,19 s (resto), como indica la RFEN.</p></div>`;
- const upd=()=>{S.hf={d:$('#hd').value,s:$('#hs').value,p:$('#hp').value,o:$('#ho').value,v:$('#hv').checked};render()};
- ['hd','hs','hp','ho','hv'].forEach(id=>$('#'+id).onchange=upd);$('#hr').onclick=()=>{S.hf=null;render()}}
+ const upd=()=>{S.hf={d:$('#hd').value,s:$('#hs').value,p:$('#hp').value,o:$('#ho').value,v:$('#hv').value,t:$('#ht').value};render()};
+ ['hd','hs','hp','ho','hv','ht'].forEach(id=>$('#'+id).onchange=upd);$('#hr').onclick=()=>{S.hf=null;render()}}
 function tsecC(t){const m=String(t).match(/^(?:(\d+):)?(\d+(?:\.\d+)?)$/);return m?(+(m[1]||0))*60+(+m[2]):null}
 /* Diario de entrenamiento: dureza 1-5, sensaciones 1-5 (semáforo) y comentario */
 const HARD=['','Muy suave','Suave','Normal','Duro','Muy duro'];
