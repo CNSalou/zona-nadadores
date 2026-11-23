@@ -206,6 +206,9 @@ function getData(token) {
   }
   const me = D.athletes.find(a => a.user === s.user);
   if (!me) return { error: 'Tu usuario existe, pero en el Excel no hay ninguna marca a nombre de "' + s.name + '". Avisa al entrenador.' };
+  // cada nadador solo ve sus propias pruebas inscritas
+  const mine = normName(me.name);
+  base.comps = D.comps.map(c => c.insc ? Object.assign({}, c, { insc: c.insc.filter(x => normName(x.name) === mine) }) : c);
   return Object.assign(base, {
     athletes: [me],
     evals: { [me.id]: st.evals[me.id] || [] },
@@ -350,6 +353,24 @@ function computeData() {
     comps.push({ name: r[0], norm: '', origin: r[1] || 'Club', cat: r[2], venue: r[3], pool: r[4], start: dstr(r[5]), end: dstr(r[6]) || dstr(r[5]),
       day: r[7] || null, time: r[8] || null, notes: r[13] || null });
   }
+  // Inscripciones a campeonatos: sección «N. INSCRIPCIÓN» de la pestaña de cada campeonato
+  [['CC Infantil Hivern', 'N09'], ['CC Júnior Hivern', 'N10']].forEach(([sh, norm]) => {
+    const c = comps.find(x => x.norm === norm); if (!c) return;
+    const v = rowsOf(sh); let i = v.findIndex(r => /^\d+\.\s*INSCRIPCI/i.test(String(r[0] || '')));
+    if (i < 0) return;
+    while (i < v.length && String(v[i][0] || '').trim() !== 'Nadador/a') i++;
+    if (i >= v.length) return;
+    const h = v[i].map(x => String(x).trim()), col = n => h.indexOf(n);
+    const k = { n: col('Nadador/a'), p: col('Prueba'), m: col('Marca'), pi: col('Piscina (m)'), d: col('Día'), s: col('Sesiones'), f: col('Formato'), o: col('Observaciones') };
+    const g = (r, j) => j >= 0 ? String(r[j] || '').trim() : '';
+    const out = [];
+    for (let j = i + 1; j < v.length && g(v[j], k.n); j++) {
+      const r = v[j];
+      out.push({ name: g(r, k.n).replace(/\s+/g, ' '), ev: g(r, k.p).toUpperCase(), t: g(r, k.m), pool: g(r, k.pi), day: g(r, k.d),
+        ses: g(r, k.s), fmt: g(r, k.f), cond: /^CONDICIONADA/i.test(g(r, k.o)) ? 1 : 0 });
+    }
+    if (out.length) c.insc = out;
+  });
   return { athletes: list, mintab: mintab, comps: comps, ligas: ligas, built: Utilities.formatDate(new Date(), CFG.ZONA, 'dd/MM/yyyy HH:mm') };
 }
 
