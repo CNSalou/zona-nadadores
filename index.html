@@ -355,25 +355,29 @@ const hasMins=a=>a.cat==='junior'||a.cat==='infantil';
    Para un nadador, el servidor marca con _g los días en que su grupo tuvo lista. */
 /* Un Pulpín = el entrenador marca «Asistió» Y el nadador ha registrado el entreno completo (dureza, sensaciones y comentario). */
 const validLog=v=>!!(v&&v.r>0&&v.s>0&&String(v.n||'').trim());
-const isSalowi=(aid,d)=>!!(att[d]&&att[d][aid]==='p'&&validLog((train[aid]||{})[d]));
+/* Junior e Infantil: además de la lista del entrenador, el nadador tiene que registrar el entreno y valorarlo. Resto de categorías: basta la lista. */
+const LOGCAT=c=>c==='junior'||c==='infantil';
+const catById=id=>{const a=D.athletes.find(x=>x.id===id);return a?a.cat:''};
+const needLog=aid=>LOGCAT(catById(aid));
+const isSalowi=(aid,d)=>!!(att[d]&&att[d][aid]==='p'&&(!needLog(aid)||validLog((train[aid]||{})[d])));
 function salowis(a,mk){const all=attDays(mk),grp=new Set(D.athletes.filter(x=>x.cat===a.cat).map(x=>x.id));grp.add('_g');let got=0,max=0,pend=0;
  Object.keys(all).forEach(d=>{if(!isTrainDay(d,a.cat,a)||d>TODAY)return;const day=all[d];if(!(isFri(d)?Object.keys(day).length>0:Object.keys(day).some(k=>grp.has(k))))return;max++;if(isSalowi(a.id,d))got++;else if(day[a.id]==='p')pend++});return {got,max,pend}}
 function salSeason(a){const ms=new Set(Object.keys(att).map(d=>d.slice(0,7)));let t=0;ms.forEach(mk=>t+=salowis(a,mk).got);return t}
-/* Posición en el equipo por Pulpines del mes. Nadador: la calcula el servidor; entrenador: se calcula aquí con la lista completa. */
+/* Posición en su categoría por Pulpines del mes. Nadador: la calcula el servidor; entrenador: se calcula aquí con la lista completa. */
 function teamPos(a,mk){
  if(D.rank)return D.rank[mk]||null;
  const c={};Object.keys(att).forEach(d=>{if(!d.startsWith(mk)||!isTrainDay(d)||d>TODAY)return;Object.keys(att[d]).forEach(k=>{if(isSalowi(k,d))c[k]=(c[k]||0)+1})});
  if(!Object.keys(c).length)return null;
- const mine=c[a.id]||0,vals=D.athletes.map(x=>c[x.id]||0);
- return {pos:1+vals.filter(v=>v>mine).length,tie:vals.filter(v=>v===mine).length-1,n:D.athletes.length,got:mine}}
+ const G=D.athletes.filter(x=>x.cat===a.cat),mine=c[a.id]||0,vals=G.map(x=>c[x.id]||0);
+ return {pos:1+vals.filter(v=>v>mine).length,tie:vals.filter(v=>v===mine).length-1,n:G.length,got:mine}}
 function posHtml(a,mk,me){const p=teamPos(a,mk);if(!p)return '';
  const lead=p.pos===1&&p.got>0,who=me?'tú':'este nadador';
- const tie=p.tie>0?`Empate en ${p.pos}.ª posición: ${who} y ${p.tie} ${p.tie===1?'compañero/a más':'compañeros/as más'}.`:(lead?(me?'¡Vas en 1.ª posición del equipo!':'¡Va en 1.ª posición del equipo!'):'');
- return `<div class="rank"><div class="pos${lead?' lead':''}">${lead?'🏆 ':''}${p.pos}.ª</div><div><div><b>Posición en el equipo</b> <span class="mute">de ${p.n} nadadores</span></div>${tie?`<div class="${lead?'ok':'mute'}" style="font-weight:600">${tie}</div>`:''}</div></div>`}
+ const tie=p.tie>0?`Empate en ${p.pos}.ª posición: ${who} y ${p.tie} ${p.tie===1?'compañero/a más':'compañeros/as más'}.`:(lead?(me?`¡Vas en 1.ª posición de ${CATN[a.cat]}!`:`¡Va en 1.ª posición de ${CATN[a.cat]}!`):'');
+ return `<div class="rank"><div class="pos${lead?' lead':''}">${lead?'🏆 ':''}${p.pos}.ª</div><div><div><b>Posición en ${CATN[a.cat]}</b> <span class="mute">de ${p.n} nadadores</span></div>${tie?`<div class="${lead?'ok':'mute'}" style="font-weight:600">${tie}</div>`:''}</div></div>`}
 function salCard(a){const mk=ym(new Date()),{got,max,pend}=salowis(a,mk),tot=salSeason(a),me=S.user.role==='athlete';
  const msg=max===0?'Cuando el entrenador pase lista empezarás a sumar pulpines.':(got===max?`<b class="ok">¡Pleno! ${me?'Tienes':'Tiene'} el Pulpín de todos los entrenos del mes.</b> `:`${got} de ${max} entrenos con Pulpín este mes. `)+'¡A final de mes, quien tenga más pulpines gana!';
  return `<div class="card"><h3>Pulpines de ${MESES[+mk.slice(5)-1]}</h3><div class="sal" style="margin-top:8px"><span class="coin">${COIN}</span><div><div class="big">${got}<span class="mute" style="font-size:20px;font-weight:600"> / ${max}</span></div><div class="mute">1 pulpín por entreno con asistencia y valoración · ${tot} en toda la temporada</div></div></div>${posHtml(a,mk,me)}${pend?`<div class="note" style="margin-top:10px">⚠️ ${pend} ${pend===1?'entreno':'entrenos'} con asistencia del entrenador ${me?'que aún no has valorado':'sin valorar por el nadador'}. ${me?'Toca los días con ❗ en el calendario y completa dureza, sensaciones y comentario para sumar el Pulpín.':''}</div>`:''}<p style="margin:10px 0 0">${msg}</p></div>`}
-const SAL_INFO=()=>`<div class="card salinfo"><span class="coin">${COIN}</span><div><h3>¿Qué son los Pulpines?</h3><p>Son puntos que se consiguen por cada entreno al que asistes. ¡A final de mes, el nadador o nadadora con más Pulpines será el ganador o ganadora!</p><p class="mute" style="font-size:14px">Para que cuente, el entreno tiene que estar en la lista de asistencia del entrenador <b>y</b> valorado ${S.user&&S.user.role==='coach'?'por el nadador':'por ti'} en <b>Entrenamiento</b>: dureza, sensaciones y comentario.</p></div></div>`;
+const SAL_INFO=()=>`<div class="card salinfo"><span class="coin">${COIN}</span><div><h3>¿Qué son los Pulpines?</h3><p>Son puntos que se consiguen por cada entreno al que asistes. ¡A final de mes, el nadador o nadadora con más Pulpines será el ganador o ganadora!</p><p class="mute" style="font-size:14px">${(()=>{const co=S.user&&S.user.role==='coach',a=co?null:(D.athletes||[])[0];if(co)return 'La clasificación es por categoría. <b>Junior e Infantil</b>: el entreno tiene que estar en la lista de asistencia del entrenador <b>y</b> el nadador tiene que registrarlo y valorarlo en <b>Entrenamiento</b> (dureza, sensaciones y comentario). <b>Resto de categorías</b>: basta con que el entrenador marque «Asistió».';return a&&LOGCAT(a.cat)?'Para que cuente, el entreno tiene que estar en la lista de asistencia del entrenador <b>y</b> tienes que registrarlo y valorarlo en <b>Entrenamiento</b>: dureza, sensaciones y comentario. La clasificación es entre los nadadores de tu categoría.':'Para que cuente, basta con que el entrenador te marque «Asistió» en la lista. La clasificación es entre los nadadores de tu categoría.'})()}</p></div></div>`;
 function hello(a){if(S.user.role!=='athlete')return '';const q=QUOTES[new Date().getMonth()];
  return `<div class="hello"><h2>¡Hola, ${esc(a.name.split(' ')[0])}!</h2></div>
  <div class="card quote"><blockquote>«${esc(q[0])}»</blockquote><div class="mute">— <b>${esc(q[1])}</b>, ${esc(q[2])} · Frase de ${MESES[new Date().getMonth()]}</div></div>`}
@@ -488,11 +492,11 @@ function weekCard(){
   let pres=0,slots=0,ok=0;const R=[],F=[];
   listed.forEach(d=>ath.forEach(a=>{const v=att[d][a.id];if(v==='p'||d<TODAY){slots++;if(v==='p'){pres++;if(validLog(trainDays(a.id)[d]))ok++}}}));
   ath.forEach(a=>{const t=trainDays(a.id);tdays.forEach(d=>{const v=t[d];if(v&&v.r>0){R.push(v.r);if(v.s>0)F.push(v.s)}});
-   const miss=listed.filter(d=>att[d][a.id]==='p'&&!validLog(t[d]));if(miss.length)pend.push([a,miss])});
+   const miss=LOGCAT(a.cat)?listed.filter(d=>att[d][a.id]==='p'&&!validLog(t[d])):[];if(miss.length)pend.push([a,miss])});
   rows.push(`<tr><td><b>${CATN[c]}</b></td><td>${listed.length}/${tdays.length}</td><td>${slots?Math.round(100*pres/slots)+' %':'—'}</td><td>${pres?ok+'/'+pres:'—'}</td><td>${avg(R)}</td><td>${avg(F)}</td></tr>`)});
  {const ath=D.athletes.filter(inSS),fr=past.filter(isFri);if(ath.length&&fr.length){const listed=fr.filter(d=>att[d]&&Object.keys(att[d]).length);fr.filter(d=>!listed.includes(d)).forEach(d=>noList.push(['ss',d]));
   let pres=0,slots=0,ok=0;listed.forEach(d=>ath.forEach(a=>{const v=att[d][a.id];if(v==='p'||d<TODAY){slots++;if(v==='p'){pres++;if(validLog(trainDays(a.id)[d]))ok++}}}));
-  ath.forEach(a=>{const t=trainDays(a.id),miss=listed.filter(d=>att[d][a.id]==='p'&&!validLog(t[d]));if(miss.length){const e=pend.find(x=>x[0]===a);if(e)e[1]=e[1].concat(miss);else pend.push([a,miss])}});
+  ath.forEach(a=>{const t=trainDays(a.id),miss=LOGCAT(a.cat)?listed.filter(d=>att[d][a.id]==='p'&&!validLog(t[d])):[];if(miss.length){const e=pend.find(x=>x[0]===a);if(e)e[1]=e[1].concat(miss);else pend.push([a,miss])}});
   rows.push(`<tr><td><b>Salvamento</b></td><td>${listed.length}/${fr.length}</td><td>${slots?Math.round(100*pres/slots)+' %':'—'}</td><td>${pres?ok+'/'+pres:'—'}</td><td>—</td><td>—</td></tr>`)}}
  const alerts=D.athletes.map(a=>{const L=Object.entries(trainDays(a.id)).filter(([d,v])=>d<=days[6]&&v&&v.r>0&&v.s>0).sort((x,y)=>y[0].localeCompare(x[0])).slice(0,3);
   let k=0;while(k<L.length&&L[k][1].s<=2)k++;return k>=2?[a,L.slice(0,k)]:null}).filter(Boolean);
@@ -503,7 +507,7 @@ function weekCard(){
   <p class="mute" style="margin:0">Listas: entrenos con lista pasada / entrenos hasta hoy. Asist.: porcentaje de asistencia. Valor.: asistencias con la valoración completa del nadador. Dureza y Sens. (sensaciones): media de 1 a 5.</p>
   ${noList.length?`<div class="note">⚠️ Falta pasar lista: ${CATS.concat('ss').filter(c=>noList.some(x=>x[0]===c)).map(c=>`<b>${c==='ss'?'Salvamento':CATN[c]}</b> ${noList.filter(x=>x[0]===c).map(x=>fd(x[1]).slice(0,5)).join(', ')}`).join(' · ')}</div>`:''}
   <div><h3>🔴 Sensaciones malas seguidas</h3>${alerts.length?`<div class="alist">${alerts.map(([a,L])=>`<button ${go(a)}><span><b>${esc(a.name)}</b> <span class="mute">${CATN[a.cat]}</span></span><span><span class="dots">${L.map(([,v])=>`<i style="background:${FEEL[v.s][0]}"></i>`).join('')}</span> ${L.length} últimos entrenos</span></button>`).join('')}</div>`:'<p class="mute">Nadie ha marcado malas sensaciones en sus últimos entrenos.</p>'}</div>
-  <div><h3>✍️ Sin valorar (${pend.length})</h3>${pend.length?`<div class="alist">${pend.sort((x,y)=>y[1].length-x[1].length).map(([a,m])=>`<button ${go(a)}><span><b>${esc(a.name)}</b> <span class="mute">${CATN[a.cat]}</span></span><span>${m.length} ${m.length===1?'entreno':'entrenos'}: ${m.map(d=>fd(d).slice(0,5)).join(', ')}</span></button>`).join('')}</div>`:'<p class="mute">Todos los que asistieron han valorado sus entrenos. 👏</p>'}</div></div>`;
+  <div><h3>✍️ Sin valorar · Junior e Infantil (${pend.length})</h3>${pend.length?`<div class="alist">${pend.sort((x,y)=>y[1].length-x[1].length).map(([a,m])=>`<button ${go(a)}><span><b>${esc(a.name)}</b> <span class="mute">${CATN[a.cat]}</span></span><span>${m.length} ${m.length===1?'entreno':'entrenos'}: ${m.map(d=>fd(d).slice(0,5)).join(', ')}</span></button>`).join('')}</div>`:'<p class="mute">Todos los que asistieron han valorado sus entrenos. 👏</p>'}</div></div>`;
  $('#wp').onclick=()=>{S.wk=off-1;weekCard()};$('#wn').onclick=()=>{if(off<0){S.wk=off+1;weekCard()}};
  document.querySelectorAll('#wk [data-ath]').forEach(b=>b.onclick=()=>{S.tab='datos';S.aid=b.dataset.ath;S.sub='ent';S.month=null;S.day=null;render()})}
 /* Asistencia del nadador: Pulpines y días con lista */
@@ -752,7 +756,7 @@ function vAsis(){
  const logBadge=(aid,x)=>{const v=(train[aid]||{})[x];if(!v)return '<span class="pill na">Sin registro</span>';if(!v.r)return '<span class="pill far">Dice que no vino</span>';
   return `<span class="pill ${validLog(v)?'ok':'near'}" title="${esc(v.n||'')}">Dureza ${v.r} · <span class="dot" style="background:${(FEEL[v.s]||[ '#999'])[0]}"></span>${String(v.n||'').trim()?' · 💬':' · sin comentario'}</span>`};
  const cell=(aid,x)=>{const c=all[x]&&all[x][aid],v=(train[aid]||{})[x],ok=validLog(v);
-  if(c==='p'&&ok)return ['sal','🐙','Pulpín: asistencia y valoración'];if(c==='p')return ['onlyc','E','Solo el entrenador: falta su valoración'];
+  if(c==='p'&&(ok||!needLog(aid)))return ['sal','🐙',ok?'Pulpín: asistencia y valoración':'Pulpín: asistencia'];if(c==='p')return ['onlyc','E','Solo el entrenador: falta su valoración'];
   if(ok)return ['onlya','N','Solo el nadador: no está como «Asistió» en la lista'];if(absent(aid,x))return ['abs','✕','No asistió'];return ['','','']};
  const cnt={p:grp.filter(a=>day[a.id]==='p').length},past=d<TODAY,rest=grp.length-cnt.p;
  const nx=n=>{const x=new Date(d+'T12:00:00');x.setDate(x.getDate()+n);S.adate=iso(x);render()};
@@ -765,7 +769,7 @@ function vAsis(){
  <p class="mute" style="margin:0">Marca solo a quien ha venido. Quien no esté marcado, no asistió.</p>
  ${grp.map(a=>{const on=day[a.id]==='p',no=!on&&(day[a.id]==='f'||(past&&Object.keys(day).length>0));return `<div class="arow"><div><b>${esc(a.name)}</b>${ss?` <span class="mute" style="font-size:13px">${CATN[a.cat]}</span>`:''} <span class="mute" style="font-size:13px">· Su registro: </span>${logBadge(a.id,d)}</div><div class="abtns">${no?'<span class="pill far">No asistió</span>':''}<button class="btn ghost" data-a="${esc(a.id)}" data-v="p" aria-pressed="${on}" style="${on?'background:var(--good);color:#06202f;border-color:transparent':''}">${on?'✓ Asistió':'Asistió'}</button></div></div>`}).join('')}
  <div class="mute" id="as" role="status">${esc(S.amsg||'')}</div></div>
- <div class="card"><h3>Pulpines de ${MESES[+mk.slice(5)-1]} (${ss?SSN:CATN[S.agrp]})</h3><p class="mute">${takenG.length} entrenamientos con lista. Pulpín = «Asistió» en vuestra lista + entreno valorado por el nadador (dureza, sensaciones y comentario). La posición es en todo el equipo. 🏆 = va en cabeza.</p>
+ <div class="card"><h3>Pulpines de ${MESES[+mk.slice(5)-1]} (${ss?SSN:CATN[S.agrp]})</h3><p class="mute">${takenG.length} entrenamientos con lista. Pulpín = «Asistió» en vuestra lista${['junior','infantil'].includes(S.agrp)?' + entreno registrado y valorado por el nadador (dureza, sensaciones y comentario)':ss?' (en Junior e Infantil, además, valorado por el nadador)':''}. La posición es dentro de cada categoría. 🏆 = va en cabeza.</p>
  <div class="tw"><table><thead><tr><th>Nadador</th><th class="r">Asistió (lista)</th><th class="r">Valorados por él/ella</th><th class="r">Pulpines</th><th class="r">Posición</th><th class="r">Asistencia</th></tr></thead><tbody>${rows.map(r=>{const p=pos(r);return `<tr><td>${esc(r.a.name)}${topS&&r.sal===topS?' 🏆':''}</td><td class="r">${r.c.p}</td><td class="r">${r.log}${r.log!==r.c.p?' <span class="pill near" title="No coincide con la lista">≠</span>':''}</td><td class="r"><span class="coin-s" style="display:inline-block">${COIN}</span><b>${r.sal}</b></td><td class="r">${p&&r.sal?p.pos+'.ª'+(p.tie?' (empate)':''):'—'}</td><td class="r"><b class="${r.pct===null?'na':r.pct>=85?'ok':r.pct>=70?'near':'far'}">${r.pct===null?'—':r.pct+'%'}</b></td></tr>`}).join('')}</tbody></table></div></div>
  <div class="card"><h3>Registro del mes: vuestra lista y lo que apunta cada nadador</h3>
  <div class="row mute" style="font-size:13px;margin:6px 0 10px"><span><span class="cmp sal">🐙</span> Coinciden (Pulpín)</span><span><span class="cmp onlyc">E</span> Solo en vuestra lista (falta su valoración)</span><span><span class="cmp onlya">N</span> Solo lo apunta el nadador</span><span><span class="cmp abs">✕</span> No asistió</span></div>
@@ -836,7 +840,7 @@ function answer(raw){
  const ev=qEvent(q);
  // Pulpines / asistencia
  if(has(q,/salowi|pulpin|asistencia|asisti|vino|ranking|clasificaci|primer|gana|cabeza|posicion/)){
-  if(a){const s=salowis(a,mk),p=teamPos(a,mk);return `${me?'Llevas':'**'+a.name+'** lleva'} **${s.got} ${s.got===1?'Pulpín':'Pulpines'}** en ${MESES[+mk.slice(5)-1]} (de ${s.max} entrenos con lista).`+(p&&s.got&&p.got===s.got?`\n• Posición en el equipo: **${p.pos}.ª** de ${p.n}${p.tie?` (empate con ${p.tie})`:''}.`:'')+(s.pend?`\n• ${s.pend} ${s.pend===1?'entreno marcado':'entrenos marcados'} como «Asistió» sin valoración completa (falta dureza, sensaciones o comentario).`:'')+'\n• Pulpín = «Asistió» en la lista del entrenador + entreno valorado con dureza, sensaciones y comentario.'}
+  if(a){const s=salowis(a,mk),p=teamPos(a,mk);return `${me?'Llevas':'**'+a.name+'** lleva'} **${s.got} ${s.got===1?'Pulpín':'Pulpines'}** en ${MESES[+mk.slice(5)-1]} (de ${s.max} entrenos con lista).`+(p&&s.got&&p.got===s.got?`\n• Posición en ${CATN[a.cat]}: **${p.pos}.ª** de ${p.n}${p.tie?` (empate con ${p.tie})`:''}.`:'')+(s.pend?`\n• ${s.pend} ${s.pend===1?'entreno marcado':'entrenos marcados'} como «Asistió» sin valoración completa (falta dureza, sensaciones o comentario).`:'')+(LOGCAT(a.cat)?'\n• Pulpín = «Asistió» en la lista del entrenador + entreno valorado con dureza, sensaciones y comentario.':'\n• Pulpín = «Asistió» en la lista del entrenador.')}
   const r=D.athletes.map(x=>({x,n:monthSal(x,mk)})).filter(o=>o.n>0).sort((u,v)=>v.n-u.n);
   if(!r.length)return `Todavía nadie tiene Pulpines en ${MESES[+mk.slice(5)-1]}.`;
   return `**Pulpines de ${MESES[+mk.slice(5)-1]}** (todo el equipo):\n`+r.slice(0,10).map(o=>`${1+r.filter(z=>z.n>o.n).length}.ª · ${o.x.name}: ${o.n}${o.n===r[0].n?' 🏆':''}`).join('\n')}
