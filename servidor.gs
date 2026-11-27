@@ -241,9 +241,7 @@ function groupAtt(att, me, athletes) {
   const out = {};
   Object.keys(att).forEach(d => {
     const day = att[d];
-    // viernes: Salvamento y Socorrismo, una sola lista para todos los grupos
-    const fri = new Date(d + 'T12:00:00Z').getUTCDay() === 5;
-    if (!(fri ? Object.keys(day).length > 0 : Object.keys(day).some(k => grp[k]))) return;
+    if (!Object.keys(day).some(k => grp[k])) return;
     out[d] = { _g: 1 };
     if (day[me.id]) out[d][me.id] = day[me.id];
   });
