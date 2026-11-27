@@ -352,8 +352,8 @@ function computeData() {
     const r = cal[i]; if (!r[0]) continue;
     ligas.push({ name: r[0], norm: r[1], cat: r[2], j: r[3], start: dstr(r[5]), end: dstr(r[6]), deadline: dstr(r[10]), pub: dstr(r[11]), notes: r[13] || null });
   }
-  // Bloque C: competiciones del calendario del club (filas 35-60)
-  for (let i = 34; i < cal.length && i < 60; i++) {
+  // Bloque C: competiciones del calendario del club (filas 36 a 120)
+  for (let i = 35; i < cal.length && i < 120; i++) { // filas 36+ (la 35 es la cabecera)
     const r = cal[i]; if (!r[0] || !dstr(r[5])) continue;
     comps.push({ name: r[0], norm: '', origin: r[1] || 'Club', cat: r[2], venue: r[3], pool: r[4], start: dstr(r[5]), end: dstr(r[6]) || dstr(r[5]),
       day: r[7] || null, time: r[8] || null, notes: r[13] || null });
