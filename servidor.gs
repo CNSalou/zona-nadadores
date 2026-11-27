@@ -304,14 +304,14 @@ function computeData() {
   const minInfo = (mn, ct) => ({ min: fmt(mn), ms: mn, pct: round2((ct - mn) / mn * 100), ok: ct <= mn + 1e-9, gap: round2(ct - mn) });
 
   const athletes = {};
-  // small = prebenjamín/benjamín: sí cuentan las pruebas de 25 m y aparecen también los nadadores aún sin marcas
+  // small = prebenjamín/benjamín: sí cuentan las pruebas de 25 m. En todas las categorías aparecen también los nadadores aún sin marcas (fila con el nombre y sin marca)
   const load = (sheet, cat, hasMin, small) => {
     rowsOf(sheet).slice(1).forEach(r => {
       const t = tsec(r[4]);
       if (!r[0] || !r[0].trim()) return;
       const name = r[0].trim().replace(/\s+/g, ' '), sex = r[1].trim().toUpperCase(), yr = parseInt(r[2], 10),
         ev = r[3].trim().toUpperCase(), pool = parseInt(r[5], 10), ch = r[6].trim();
-      if (t === null) { if (small && !athletes[name]) athletes[name] = { name: name, sex: sex, year: yr, cat: cat, marks: [] }; return; }
+      if (t === null) { if (!athletes[name]) athletes[name] = { name: name, sex: sex, year: yr, cat: cat, marks: [] }; return; }
       if (!small && /^25[LEBMS]$/.test(ev)) return; // no se muestran pruebas de 25 m (salvo prebenjamín/benjamín)
       const a = athletes[name] || (athletes[name] = { name: name, sex: sex, year: yr, cat: cat, marks: [] });
       const corr = ch === 'Manual' ? (ev.indexOf('50') === 0 ? 0.29 : 0.19) : 0, ct = t + corr;
