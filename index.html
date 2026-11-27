@@ -248,8 +248,11 @@ async function loadFCN(){if(FCN.items||FCN.busy||FCN.err)return;FCN.busy=true;
 function fcnCal(){const it=(FCN.items||[]).filter(x=>/calendari/i.test(x.title)).sort((a,b)=>b.date.localeCompare(a.date))[0];
  const mine='2026-10-26';return it?{id:it.id,date:it.date,newer:it.date>mine||String(it.id)!=='22616'}:null}
 /* Avisos de plazos de inscripción para el entrenador: abre pronto (≤7 días), abierto y cerrado hace poco (≤7 días) */
-/* Enlace a la normativa de una competición: URL propia (RFEN), docId Máster o código N de la FCN (N.NN → fichero 22510+NN, salvo las de NORMS) */
-function normUrl(c){if(c.url)return c.url;if(c.ms&&c.pdf)return fcnFile(c.pdf);const n=String(c.norm||'');if(NORMS[n])return fcnFile(NORMS[n]);const m=n.match(/^N(\d{2})$/);return m?fcnFile(22510+(+m[1])):''}
+/* Página de la FCN con toda la información del campeonato (convocatoria: normativa, inscritos, listados, horarios y resultados), comprobadas el 27/11/2026 */
+const FCN_CONV={N09:6474,N10:6475,N11:6490,N13:6476,N19:6480,N21:6481,N22:6482,N23:6483,N24:6477,N25:6478,N26:6488};
+const FCN_CONV_MS=[[/hivern/i,6671],[/llarga/i,6673],[/fons/i,6670],[/estiu|open/i,6672]];
+function compPage(c){if(c.ms){if(/España/.test(c.cat))return c.url?{u:c.url,t:'📄 Normativa RFEN (la RFEN no tiene página de convocatoria)'}:null;if(!/Campionat/.test(c.cat))return null;const m=FCN_CONV_MS.find(x=>x[0].test(c.name));return m?{u:'https://www.natacio.cat/convocation/?id='+m[1],t:'🌐 Información del campeonato (FCN)'}:null}
+ const id=FCN_CONV[c.norm];return id?{u:'https://www.natacio.cat/convocation/?id='+id,t:'🌐 Información del campeonato (FCN)'}:null}
 /* Plazos de inscripción: la competición sigue en la tarjeta hasta que acaba (inscripción, listados provisional y definitivo y fechas de competición) */
 function inscCard(){const el=$('#ic');if(!el)return;
  const L=D.comps.filter(c=>c.iclose).map(c=>{const cl=daysTo(c.iclose),o=c.iopen?daysTo(c.iopen):(cl<=21?0:99),end=c.end||c.start;
@@ -262,8 +265,8 @@ function inscCard(){const el=$('#ic');if(!el)return;
   else if(x.st==='soon'){ic='🔵';txt=`<b>Abre ${when(x.o)}</b> (${fd(c.iopen)}) · cierra el ${fd(c.iclose)}${lst('provisional',c.prov)}${lst('definitivo',c.defi)}`}
   else if(x.st==='live'){ic='🏁';txt=`<b>En competición</b>`}
   else{ic='⚫';txt=`<b>Inscripción cerrada</b> el ${fd(c.iclose)}${lst('provisional',c.prov)}${lst('definitivo',c.defi)}`;const nx=[c.prov,c.defi].filter(d=>d&&d>=TODAY)[0];if(nx&&daysTo(nx)<=1)cls=' new'}
-  const st=c.start?daysTo(c.start):null,u=normUrl(c);
-  return `<div class="nfi${cls}" style="display:block"><b>${ic} ${esc(c.name)}</b>${c.norm?` <span class="pill na">${esc(c.norm)}</span>`:''}<br><span class="mute">${txt} · competición ${c.end&&c.end!==c.start?fd(c.start)+' – '+fd(c.end):fd(c.start)}${st!==null&&st>0?` (${leftTxt(st).toLowerCase()})`:''}</span>${u?`<br><a href="${u}" target="_blank" rel="noopener">📄 Normativa</a>`:''}</div>`};
+  const st=c.start?daysTo(c.start):null,u=compPage(c);
+  return `<div class="nfi${cls}" style="display:block"><b>${ic} ${esc(c.name)}</b>${c.norm?` <span class="pill na">${esc(c.norm)}</span>`:''}<br><span class="mute">${txt} · competición ${c.end&&c.end!==c.start?fd(c.start)+' – '+fd(c.end):fd(c.start)}${st!==null&&st>0?` (${leftTxt(st).toLowerCase()})`:''}</span>${u?`<br><a href="${u.u}" target="_blank" rel="noopener">${u.t}</a>`:''}</div>`};
  const urgent=L.some(x=>x.st==='open'&&x.cl<=2);
  el.innerHTML=`<div class="card stack" ${urgent?'style="border:2px solid var(--bad)"':''}><h3>🗓️ Plazos de inscripción</h3>
   ${L.length?`<div class="alist">${L.map(line).join('')}</div>`:'<p class="mute" style="margin:0">Ninguna inscripción abierta, a punto de abrir o pendiente de competir.</p>'}
