@@ -338,8 +338,14 @@ function isoWeek(d){const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.get
 const quoteOfWeek=()=>QUOTES[isoWeek(new Date())%QUOTES.length];
 const COIN=`<svg viewBox="0 0 64 64" aria-hidden="true"><defs><radialGradient id="cg" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#ffe27a"/><stop offset=".6" stop-color="#f5c542"/><stop offset="1" stop-color="#d9a21b"/></radialGradient></defs><circle cx="32" cy="32" r="30" fill="url(#cg)" stroke="#a87405" stroke-width="3"/><circle cx="32" cy="32" r="25" fill="none" stroke="#b8860b" stroke-width="1.5" stroke-dasharray="2.5 2.5"/><g fill="none" stroke="#7a5200" stroke-width="2.6" stroke-linecap="round"><path d="M24 33c-4 4-9 4-11 1"/><path d="M26 36c-2 6-7 9-10 8"/><path d="M29 37c0 6-3 10-6 11"/><path d="M32 37c1 6 0 10-1 12"/><path d="M35 37c2 5 4 9 7 10"/><path d="M38 36c3 5 7 7 10 6"/><path d="M40 33c4 3 8 3 11 0"/><path d="M27 35c-5 1-8-1-10-3"/></g><path d="M32 13c-8 0-12 6-12 12 0 6 4 10 12 10s12-4 12-10c0-6-4-12-12-12z" fill="#c8900f" stroke="#7a5200" stroke-width="2.4"/><ellipse cx="27.5" cy="25.5" rx="2.6" ry="3" fill="#fff4cf"/><ellipse cx="36.5" cy="25.5" rx="2.6" ry="3" fill="#fff4cf"/><circle cx="28" cy="26.2" r="1.4" fill="#4a3200"/><circle cx="37" cy="26.2" r="1.4" fill="#4a3200"/><path d="M29 30.5c1.8 1.4 4.2 1.4 6 0" fill="none" stroke="#7a5200" stroke-width="1.6" stroke-linecap="round"/><path d="M26 17c2-1.5 4-2 6-2" fill="none" stroke="#ffe8a0" stroke-width="1.6" stroke-linecap="round" opacity=".8"/></svg>`;
 /* Días de entreno: lunes a jueves; Máster solo martes, miércoles y jueves */
-const isTrainDay=(d,cat)=>{const w=new Date(d+'T12:00:00').getDay();return cat==='master'?(w>=2&&w<=4):(w>=1&&w<=4)};
-const trainDaysTxt=cat=>cat==='master'?'martes a jueves':'lunes a jueves';
+/* Viernes: entreno de Salvamento y Socorrismo (grupo 'ss'). SS_NAMES = lista de quienes lo hacen; null = pendiente (cuentan todos menos Máster) */
+const SS_NAMES=null;
+const inSS=a=>!!a&&a.cat!=='master'&&(!SS_NAMES||SS_NAMES.some(n=>nn(n)===nn(a.name)));
+const isFri=d=>new Date(d+'T12:00:00').getDay()===5;
+const isTrainDay=(d,cat,a)=>{const w=new Date(d+'T12:00:00').getDay();if(cat==='ss')return w===5;if(w===5)return cat!=='master'&&(!a||inSS(a));return cat==='master'?(w>=2&&w<=4):(w>=1&&w<=4)};
+const isRegDay=(d,cat)=>{const w=new Date(d+'T12:00:00').getDay();return cat==='master'?(w>=2&&w<=4):(w>=1&&w<=4)};
+const trainDaysTxt=(cat,a)=>cat==='master'?'martes a jueves':'lunes a jueves'+(!a||inSS(a)?'; viernes, Salvamento y Socorrismo':'');
+const SSN='Salvamento y Socorrismo (viernes)';
 const CATN={junior:'Junior',infantil:'Infantil',alevin:'Alevín',benjamin:'Prebenjamín y Benjamín',master:'Máster'};
 const CATS=['junior','infantil','alevin','benjamin','master'];
 /* Prebenjamín (2018 y posteriores) y Benjamín (2016-2017) comparten grupo; cada nadador ve su categoría */
@@ -351,7 +357,7 @@ const hasMins=a=>a.cat==='junior'||a.cat==='infantil';
 const validLog=v=>!!(v&&v.r>0&&v.s>0&&String(v.n||'').trim());
 const isSalowi=(aid,d)=>!!(att[d]&&att[d][aid]==='p'&&validLog((train[aid]||{})[d]));
 function salowis(a,mk){const all=attDays(mk),grp=new Set(D.athletes.filter(x=>x.cat===a.cat).map(x=>x.id));grp.add('_g');let got=0,max=0,pend=0;
- Object.keys(all).forEach(d=>{if(!isTrainDay(d,a.cat)||d>TODAY)return;const day=all[d];if(!Object.keys(day).some(k=>grp.has(k)))return;max++;if(isSalowi(a.id,d))got++;else if(day[a.id]==='p')pend++});return {got,max,pend}}
+ Object.keys(all).forEach(d=>{if(!isTrainDay(d,a.cat,a)||d>TODAY)return;const day=all[d];if(!(isFri(d)?Object.keys(day).length>0:Object.keys(day).some(k=>grp.has(k))))return;max++;if(isSalowi(a.id,d))got++;else if(day[a.id]==='p')pend++});return {got,max,pend}}
 function salSeason(a){const ms=new Set(Object.keys(att).map(d=>d.slice(0,7)));let t=0;ms.forEach(mk=>t+=salowis(a,mk).got);return t}
 /* Posición en el equipo por Pulpines del mes. Nadador: la calcula el servidor; entrenador: se calcula aquí con la lista completa. */
 function teamPos(a,mk){
@@ -477,13 +483,17 @@ function weekCard(){
  const off=S.wk||0,days=weekDays(off),past=days.filter(d=>d<=TODAY),avg=x=>x.length?(x.reduce((p,q)=>p+q,0)/x.length).toFixed(1).replace('.',','):'—';
  const rows=[],pend=[],noList=[];
  CATS.forEach(c=>{const ath=D.athletes.filter(a=>a.cat===c);if(!ath.length)return;const ids=new Set(ath.map(a=>a.id));
-  const tdays=past.filter(d=>isTrainDay(d,c)),listed=tdays.filter(d=>att[d]&&Object.keys(att[d]).some(k=>ids.has(k)));
+  const tdays=past.filter(d=>isRegDay(d,c)),listed=tdays.filter(d=>att[d]&&Object.keys(att[d]).some(k=>ids.has(k)));
   tdays.filter(d=>!listed.includes(d)).forEach(d=>noList.push([c,d]));
   let pres=0,slots=0,ok=0;const R=[],F=[];
-  listed.forEach(d=>ath.forEach(a=>{const v=att[d][a.id];if(v){slots++;if(v==='p'){pres++;if(validLog(trainDays(a.id)[d]))ok++}}}));
+  listed.forEach(d=>ath.forEach(a=>{const v=att[d][a.id];if(v==='p'||d<TODAY){slots++;if(v==='p'){pres++;if(validLog(trainDays(a.id)[d]))ok++}}}));
   ath.forEach(a=>{const t=trainDays(a.id);tdays.forEach(d=>{const v=t[d];if(v&&v.r>0){R.push(v.r);if(v.s>0)F.push(v.s)}});
    const miss=listed.filter(d=>att[d][a.id]==='p'&&!validLog(t[d]));if(miss.length)pend.push([a,miss])});
   rows.push(`<tr><td><b>${CATN[c]}</b></td><td>${listed.length}/${tdays.length}</td><td>${slots?Math.round(100*pres/slots)+' %':'—'}</td><td>${pres?ok+'/'+pres:'—'}</td><td>${avg(R)}</td><td>${avg(F)}</td></tr>`)});
+ {const ath=D.athletes.filter(inSS),fr=past.filter(isFri);if(ath.length&&fr.length){const listed=fr.filter(d=>att[d]&&Object.keys(att[d]).length);fr.filter(d=>!listed.includes(d)).forEach(d=>noList.push(['ss',d]));
+  let pres=0,slots=0,ok=0;listed.forEach(d=>ath.forEach(a=>{const v=att[d][a.id];if(v==='p'||d<TODAY){slots++;if(v==='p'){pres++;if(validLog(trainDays(a.id)[d]))ok++}}}));
+  ath.forEach(a=>{const t=trainDays(a.id),miss=listed.filter(d=>att[d][a.id]==='p'&&!validLog(t[d]));if(miss.length){const e=pend.find(x=>x[0]===a);if(e)e[1]=e[1].concat(miss);else pend.push([a,miss])}});
+  rows.push(`<tr><td><b>Salvamento</b></td><td>${listed.length}/${fr.length}</td><td>${slots?Math.round(100*pres/slots)+' %':'—'}</td><td>${pres?ok+'/'+pres:'—'}</td><td>—</td><td>—</td></tr>`)}}
  const alerts=D.athletes.map(a=>{const L=Object.entries(trainDays(a.id)).filter(([d,v])=>d<=days[6]&&v&&v.r>0&&v.s>0).sort((x,y)=>y[0].localeCompare(x[0])).slice(0,3);
   let k=0;while(k<L.length&&L[k][1].s<=2)k++;return k>=2?[a,L.slice(0,k)]:null}).filter(Boolean);
  const go=a=>`data-ath="${esc(a.id)}"`;
@@ -491,7 +501,7 @@ function weekCard(){
  $('#wk').innerHTML=`<div class="card wk stack"><div class="row"><button class="btn ghost" id="wp" aria-label="Semana anterior">‹</button><div class="sp" style="text-align:center"><h3>📋 Resumen · ${title}</h3><div class="mute">${fd(days[0])} – ${fd(days[6])}</div></div><button class="btn ghost" id="wn" aria-label="Semana siguiente" ${off>=0?'disabled':''}>›</button></div>
   <div class="tw"><table><thead><tr><th>Grupo</th><th>Listas</th><th>Asist.</th><th>Valor.</th><th>Dureza</th><th>Sens.</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
   <p class="mute" style="margin:0">Listas: entrenos con lista pasada / entrenos hasta hoy. Asist.: porcentaje de asistencia. Valor.: asistencias con la valoración completa del nadador. Dureza y Sens. (sensaciones): media de 1 a 5.</p>
-  ${noList.length?`<div class="note">⚠️ Falta pasar lista: ${CATS.filter(c=>noList.some(x=>x[0]===c)).map(c=>`<b>${CATN[c]}</b> ${noList.filter(x=>x[0]===c).map(x=>fd(x[1]).slice(0,5)).join(', ')}`).join(' · ')}</div>`:''}
+  ${noList.length?`<div class="note">⚠️ Falta pasar lista: ${CATS.concat('ss').filter(c=>noList.some(x=>x[0]===c)).map(c=>`<b>${c==='ss'?'Salvamento':CATN[c]}</b> ${noList.filter(x=>x[0]===c).map(x=>fd(x[1]).slice(0,5)).join(', ')}`).join(' · ')}</div>`:''}
   <div><h3>🔴 Sensaciones malas seguidas</h3>${alerts.length?`<div class="alist">${alerts.map(([a,L])=>`<button ${go(a)}><span><b>${esc(a.name)}</b> <span class="mute">${CATN[a.cat]}</span></span><span><span class="dots">${L.map(([,v])=>`<i style="background:${FEEL[v.s][0]}"></i>`).join('')}</span> ${L.length} últimos entrenos</span></button>`).join('')}</div>`:'<p class="mute">Nadie ha marcado malas sensaciones en sus últimos entrenos.</p>'}</div>
   <div><h3>✍️ Sin valorar (${pend.length})</h3>${pend.length?`<div class="alist">${pend.sort((x,y)=>y[1].length-x[1].length).map(([a,m])=>`<button ${go(a)}><span><b>${esc(a.name)}</b> <span class="mute">${CATN[a.cat]}</span></span><span>${m.length} ${m.length===1?'entreno':'entrenos'}: ${m.map(d=>fd(d).slice(0,5)).join(', ')}</span></button>`).join('')}</div>`:'<p class="mute">Todos los que asistieron han valorado sus entrenos. 👏</p>'}</div></div>`;
  $('#wp').onclick=()=>{S.wk=off-1;weekCard()};$('#wn').onclick=()=>{if(off<0){S.wk=off+1;weekCard()}};
@@ -502,12 +512,13 @@ function vAsisMe(a){
  const grp=new Set(D.athletes.filter(x=>x.cat===a.cat).map(x=>x.id));grp.add('_g');
  let cells='';for(let i=0;i<off;i++)cells+='<div class="day e"></div>';
  for(let d=1;d<=n;d++){const k=mk+'-'+String(d).padStart(2,'0'),day=all[k]||{},list=Object.keys(day).some(x=>grp.has(x)),v=day[a.id];
-  const sal=isSalowi(a.id,k),cls=sal?'yes':v==='p'?'pend':v==='f'?'no':(list?'nolist':'');cells+=`<div class="day ${cls} ${isTrainDay(k,a.cat)?'sch':'off'} ${k===TODAY?'today':''}" aria-label="Día ${d}${sal?', pulpín':v==='p'?', asististe pero falta valorarlo':v==='f'?', no asististe':list?', no estás en la lista':''}">${d}${sal?'<small>🐙</small>':v==='p'?'<small>!</small>':v==='f'?'<small>✕</small>':list?'<small>?</small>':''}</div>`}
+  const ls=list||(isFri(k)&&Object.keys(day).length>0&&inSS(a)),no=v!=='p'&&(v==='f'||(ls&&k<TODAY));
+  const sal=isSalowi(a.id,k),cls=sal?'yes':v==='p'?'pend':no?'no':(ls?'nolist':'');cells+=`<div class="day ${cls} ${isTrainDay(k,a.cat,a)?'sch':'off'} ${k===TODAY?'today':''}" aria-label="Día ${d}${sal?', pulpín':v==='p'?', asististe pero falta valorarlo':no?', no asististe':ls?', todavía sin marcar':''}">${d}${sal?'<small>🐙</small>':v==='p'?'<small>!</small>':no?'<small>✕</small>':ls?'<small>?</small>':''}</div>`}
  const {got,max}=salowis(a,mk);
  $('#v').innerHTML=`<div class="stack">${SAL_INFO()}${salCard(a)}
  <div class="card"><div class="row"><button class="btn ghost" id="am" aria-label="Mes anterior">‹</button><h3 class="sp" style="text-align:center">${MESES[m-1]} ${y}</h3><button class="btn ghost" id="an2" aria-label="Mes siguiente">›</button></div>
  <div class="cal" style="margin-top:10px">${['L','M','X','J','V','S','D'].map(x=>`<div class="h">${x}</div>`).join('')}${cells}</div>
- <div class="row mute" style="margin-top:10px;font-size:14px"><span><span class="sw yes"></span> Pulpín</span><span><span class="sw pend"></span> Asististe, falta valorarlo</span><span><span class="sw no"></span> No asististe</span><span><span class="sw nolist"></span> No estás en la lista ese día</span><span>${got} de ${max} en ${MESES[m-1]}</span></div></div></div>`;
+ <div class="row mute" style="margin-top:10px;font-size:14px"><span><span class="sw yes"></span> Pulpín</span><span><span class="sw pend"></span> Asististe, falta valorarlo</span><span><span class="sw no"></span> No asististe</span><span><span class="sw nolist"></span> Hoy, todavía sin marcar</span><span>${got} de ${max} en ${MESES[m-1]}</span></div></div></div>`;
  $('#am').onclick=()=>{S.amonth=ym(new Date(y,m-2,1));render()};$('#an2').onclick=()=>{S.amonth=ym(new Date(y,m,1));render()}}
 /* Las mínimas son las del Campeonato de Catalunya de invierno de su categoría (N10 júnior, N09 infantil) */
 /* Mínimas: invierno (N10 júnior / N09 infantil) y verano (N22 júnior / N21 infantil) */
@@ -523,7 +534,7 @@ const daysTo=d=>Math.round((new Date(d+'T12:00:00')-new Date(TODAY+'T12:00:00'))
 const leftTxt=n=>n<=0?'Hoy':n===1?'Mañana':'En '+n+' días';
 function nextComps(a){return D.comps.filter(c=>c.start&&c.end>=TODAY&&relevant(c,a)).sort((x,y)=>x.start.localeCompare(y.start))}
 function relevant(c,a){const k=String(c.cat||'').toLowerCase(),y=String(a.year);if(a.cat==='master')return !!c.ms;if(c.ms)return false;if(a.cat==='benjamin')return /benjam/.test(k)||k.includes(y);if(a.cat==='junior')return /j[uú]nior|absolut/.test(k)||k.includes(y);if(a.cat==='infantil')return /infantil/.test(k)||k.includes(y);return /alev/.test(k)||k.includes(y)}
-function attMonth(a){const days=trainDays(a.id),now=new Date(),mk=ym(now),n=new Date(now.getFullYear(),now.getMonth()+1,0).getDate(),off=(new Date(now.getFullYear(),now.getMonth(),1).getDay()+6)%7;let s=0,t=0;for(let d=1;d<=n;d++){const k=mk+'-'+String(d).padStart(2,'0');if(((off+d-1)%7)<4&&k<=TODAY){s++;if(days[k]&&days[k].r>0)t++}}return s?Math.round(t/s*100)+'%':'—'}
+function attMonth(a){const days=trainDays(a.id),now=new Date(),mk=ym(now),n=new Date(now.getFullYear(),now.getMonth()+1,0).getDate(),off=(new Date(now.getFullYear(),now.getMonth(),1).getDay()+6)%7;let s=0,t=0;for(let d=1;d<=n;d++){const k=mk+'-'+String(d).padStart(2,'0');if(isTrainDay(k,a.cat,a)&&k<=TODAY){s++;if(days[k]&&days[k].r>0)t++}}return s?Math.round(t/s*100)+'%':'—'}
 function vRes(a){
  const b=best(a);
  const nx=nextComps(a)[0],ls=(evals[a.id]||[])[0];
@@ -651,13 +662,13 @@ function vEnt(a){
  const rec=Object.entries(days).filter(([d,v])=>d.startsWith(S.month)&&v.r>0).map(([,v])=>v);
  const avg=k=>{const x=rec.filter(v=>v[k]>0).map(v=>v[k]);return x.length?(x.reduce((s,z)=>s+z,0)/x.length).toFixed(1).replace('.',','):'—'};
  let cells='';for(let i=0;i<off;i++)cells+='<div class="day e"></div>';
- for(let d=1;d<=n;d++){const k=S.month+'-'+String(d).padStart(2,'0'),v=days[k],sc=isTrainDay(k,a.cat),f=v&&v.r&&FEEL[v.s];
+ for(let d=1;d<=n;d++){const k=S.month+'-'+String(d).padStart(2,'0'),v=days[k],sc=isTrainDay(k,a.cat,a),f=v&&v.r&&FEEL[v.s];
   const sal=isSalowi(a.id,k),pend=!sal&&att[k]&&att[k][a.id]==='p';
   cells+=`<button class="day ${v&&v.r?'rt':''} ${v&&!v.r?'fa':''} ${pend&&!f?'pend':''} ${sc?'sch':'off'} ${k===TODAY?'today':''} ${k===S.day?'sel':''}" ${f?`style="background:${f[0]}"`:''} data-d="${k}" aria-label="Día ${d}${v?(v.r?', dureza '+v.r+' de 5'+(f?', sensaciones '+f[1].toLowerCase():''):', no asistió'):''}${sal?', pulpín':pend?', falta completar la valoración':''}">${sal?'<span class="coinmark">🐙</span>':''}${pend?'<span class="coinmark">❗</span>':''}${d}${v?`<small>${v.r||'✕'}</small>`:''}</button>`}
  const ro=S.user.role==='coach';
  $('#v').innerHTML=`<div class="stack" style="margin-bottom:12px">${SAL_INFO()}${salCard(a)}</div><div class="grid g2"><div class="card"><div class="row"><button class="btn ghost" id="pm" aria-label="Mes anterior">‹</button><h3 class="sp" style="text-align:center">${mn} ${y}</h3><button class="btn ghost" id="nm" aria-label="Mes siguiente">›</button></div>
  <div class="cal" style="margin-top:10px">${['L','M','X','J','V','S','D'].map(x=>`<div class="h">${x}</div>`).join('')}${cells}</div>
- <p class="mute">El número es la dureza (1 a 5) y el color, las sensaciones. El punto marca los días de entrenamiento (${trainDaysTxt(a.cat)}). 🐙 = Pulpín conseguido. ❗ = ${ro?'el entrenador lo marcó como «Asistió» pero falta su valoración completa':'el entrenador te ha marcado «Asistió»: completa dureza, sensaciones y comentario para sumar el Pulpín'}.</p>
+ <p class="mute">El número es la dureza (1 a 5) y el color, las sensaciones. El punto marca los días de entrenamiento (${trainDaysTxt(a.cat,a)}). 🐙 = Pulpín conseguido. ❗ = ${ro?'el entrenador lo marcó como «Asistió» pero falta su valoración completa':'el entrenador te ha marcado «Asistió»: completa dureza, sensaciones y comentario para sumar el Pulpín'}.</p>
  <div class="row" style="margin-top:4px"><div class="tile"><div class="n">${rec.length}</div><div class="l">entrenos valorados</div></div><div class="tile"><div class="n">${avg('r')}</div><div class="l">dureza media</div></div><div class="tile"><div class="n">${avg('s')}</div><div class="l">sensaciones medias</div></div></div></div>
  <div class="card" id="ed">${S.day?'':`<p class="mute">${ro?'Elige un día para ver cómo valoró el entrenamiento.':'Elige un día en el calendario para valorar cómo fue el entrenamiento.'}</p>`}</div></div>
  <div class="card" style="margin-top:12px" id="lc">${loadChart(days)}</div>`;
@@ -727,12 +738,14 @@ function vProg(){
 
 /* ---------- asistencia (entrenador) ---------- */
 function vAsis(){
- if(!S.adate)S.adate=TODAY;if(!S.agrp)S.agrp='junior';
+ if(!S.adate)S.adate=TODAY;if(!S.agrp)S.agrp=isFri(S.adate)?'ss':'junior';
  const d=S.adate,mk=d.slice(0,7),all=attDays(mk),day=all[d]||{};
- const dt=new Date(d+'T12:00:00'),dn=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][dt.getDay()],sch=isTrainDay(d,S.agrp);
- const grp=D.athletes.filter(a=>a.cat===S.agrp),taken=Object.keys(all).filter(x=>Object.keys(all[x]).length&&(()=>{return isTrainDay(x,S.agrp)})()).sort();
+ const dt=new Date(d+'T12:00:00'),dn=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][dt.getDay()],ss=S.agrp==='ss',gday=x=>ss?isFri(x):isRegDay(x,S.agrp),sch=gday(d);
+ const grp=ss?D.athletes.filter(inSS):D.athletes.filter(a=>a.cat===S.agrp),taken=Object.keys(all).filter(x=>Object.keys(all[x]).length&&gday(x)).sort();
  const ids=new Set(grp.map(a=>a.id)),takenG=taken.filter(x=>x<=TODAY&&Object.keys(all[x]).some(k=>ids.has(k)));
- const rows=grp.map(a=>{const c={p:0,f:0};takenG.forEach(x=>{const v=all[x][a.id];if(v in c)c[v]++});const den=c.p+c.f;return {a,c,pct:den?Math.round(c.p/den*100):null}});
+ /* Solo se marca «Asistió»: en un día con lista, quien no está marcado no asistió (el día de hoy cuenta al acabar el día) */
+ const absent=(aid,x)=>{const v=all[x]&&all[x][aid];return v!=='p'&&(v==='f'||(x<TODAY&&takenG.includes(x)))};
+ const rows=grp.map(a=>{const c={p:0,f:0};takenG.forEach(x=>{if(all[x][a.id]==='p')c.p++;else if(absent(a.id,x))c.f++});const den=c.p+c.f;return {a,c,pct:den?Math.round(c.p/den*100):null}});
  rows.forEach(r=>{r.log=takenG.filter(x=>validLog((train[r.a.id]||{})[x])).length;r.sal=takenG.filter(x=>isSalowi(r.a.id,x)).length});
  const topS=Math.max(0,...rows.map(r=>r.sal));
  const pos=r=>teamPos(r.a,mk);
@@ -740,16 +753,19 @@ function vAsis(){
   return `<span class="pill ${validLog(v)?'ok':'near'}" title="${esc(v.n||'')}">Dureza ${v.r} · <span class="dot" style="background:${(FEEL[v.s]||[ '#999'])[0]}"></span>${String(v.n||'').trim()?' · 💬':' · sin comentario'}</span>`};
  const cell=(aid,x)=>{const c=all[x]&&all[x][aid],v=(train[aid]||{})[x],ok=validLog(v);
   if(c==='p'&&ok)return ['sal','🐙','Pulpín: asistencia y valoración'];if(c==='p')return ['onlyc','E','Solo el entrenador: falta su valoración'];
-  if(ok)return ['onlya','N','Solo el nadador: no está como «Asistió» en la lista'];if(c==='f')return ['abs','✕','No asistió'];return ['','','']};
- const cnt={p:grp.filter(a=>day[a.id]==='p').length,f:grp.filter(a=>day[a.id]==='f').length};
+  if(ok)return ['onlya','N','Solo el nadador: no está como «Asistió» en la lista'];if(absent(aid,x))return ['abs','✕','No asistió'];return ['','','']};
+ const cnt={p:grp.filter(a=>day[a.id]==='p').length},past=d<TODAY,rest=grp.length-cnt.p;
  const nx=n=>{const x=new Date(d+'T12:00:00');x.setDate(x.getDate()+n);S.adate=iso(x);render()};
  $('#v').innerHTML=`<div class="stack">${SAL_INFO()}<div class="card stack"><h2>Control de asistencia</h2>
  <div class="row"><button class="btn ghost" id="ap" aria-label="Día anterior">‹</button><label for="ad" class="row" style="flex-direction:row">Día<input id="ad" type="date" value="${d}" style="width:auto"></label><button class="btn ghost" id="an" aria-label="Día siguiente">›</button><button class="btn ghost" id="at">Hoy</button><span class="sp"></span>
- <label for="ag" class="row" style="flex-direction:row">Grupo<select id="ag" style="width:auto">${CATS.map(c=>[c,CATN[c]]).map(g=>`<option value="${g[0]}" ${S.agrp===g[0]?'selected':''}>${g[1]}</option>`).join('')}</select></label></div>
- <div class="row"><b>${dn} ${fd(d)}</b>${sch?'':'<span class="pill near">No es día de entrenamiento</span>'}<span class="mute">${cnt.p} han asistido · ${cnt.f} no han asistido · ${grp.length-cnt.p-cnt.f} sin marcar</span><span class="sp"></span><button class="btn ghost" id="all">Marcar que han asistido todos</button></div>
- ${grp.map(a=>`<div class="arow"><div><b>${esc(a.name)}</b> <span class="mute" style="font-size:13px">· Su registro: </span>${logBadge(a.id,d)}</div><div class="abtns">${[['p','Asistió'],['f','No asistió']].map(o=>`<button class="btn ghost" data-a="${esc(a.id)}" data-v="${o[0]}" aria-pressed="${day[a.id]===o[0]}" style="${day[a.id]===o[0]?'background:var(--'+(o[0]==='p'?'good':'bad')+');color:#06202f;border-color:transparent':''}">${o[1]}</button>`).join('')}</div></div>`).join('')}
+ <label for="ag" class="row" style="flex-direction:row">Grupo<select id="ag" style="width:auto">${CATS.map(c=>[c,CATN[c]]).concat([['ss',SSN]]).map(g=>`<option value="${g[0]}" ${S.agrp===g[0]?'selected':''}>${g[1]}</option>`).join('')}</select></label></div>
+ ${isFri(d)&&!ss?`<div class="note">Los viernes es el entreno de <b>Salvamento y Socorrismo</b>: la lista se pasa en ese grupo. <button class="btn ghost" id="goss">Ir a Salvamento y Socorrismo</button></div>`:''}
+ ${ss&&!SS_NAMES?`<div class="note">Falta la lista de quién hace Salvamento y Socorrismo: de momento salen todos los nadadores menos los Máster.</div>`:''}
+ <div class="row"><b>${dn} ${fd(d)}</b>${sch?(ss?'<span class="pill ok">Salvamento y Socorrismo</span>':''):'<span class="pill near">No es día de entrenamiento</span>'}<span class="mute">${cnt.p} han asistido · ${rest} ${past?'no asistieron':'sin marcar (si no se marcan, al acabar el día cuentan como que no asistieron)'}</span><span class="sp"></span><button class="btn ghost" id="all">Marcar que han asistido todos</button></div>
+ <p class="mute" style="margin:0">Marca solo a quien ha venido. Quien no esté marcado, no asistió.</p>
+ ${grp.map(a=>{const on=day[a.id]==='p',no=!on&&(day[a.id]==='f'||(past&&Object.keys(day).length>0));return `<div class="arow"><div><b>${esc(a.name)}</b>${ss?` <span class="mute" style="font-size:13px">${CATN[a.cat]}</span>`:''} <span class="mute" style="font-size:13px">· Su registro: </span>${logBadge(a.id,d)}</div><div class="abtns">${no?'<span class="pill far">No asistió</span>':''}<button class="btn ghost" data-a="${esc(a.id)}" data-v="p" aria-pressed="${on}" style="${on?'background:var(--good);color:#06202f;border-color:transparent':''}">${on?'✓ Asistió':'Asistió'}</button></div></div>`}).join('')}
  <div class="mute" id="as" role="status">${esc(S.amsg||'')}</div></div>
- <div class="card"><h3>Pulpines de ${MESES[+mk.slice(5)-1]} (${CATN[S.agrp]})</h3><p class="mute">${takenG.length} entrenamientos con lista. Pulpín = «Asistió» en vuestra lista + entreno valorado por el nadador (dureza, sensaciones y comentario). La posición es en todo el equipo. 🏆 = va en cabeza.</p>
+ <div class="card"><h3>Pulpines de ${MESES[+mk.slice(5)-1]} (${ss?SSN:CATN[S.agrp]})</h3><p class="mute">${takenG.length} entrenamientos con lista. Pulpín = «Asistió» en vuestra lista + entreno valorado por el nadador (dureza, sensaciones y comentario). La posición es en todo el equipo. 🏆 = va en cabeza.</p>
  <div class="tw"><table><thead><tr><th>Nadador</th><th class="r">Asistió (lista)</th><th class="r">Valorados por él/ella</th><th class="r">Pulpines</th><th class="r">Posición</th><th class="r">Asistencia</th></tr></thead><tbody>${rows.map(r=>{const p=pos(r);return `<tr><td>${esc(r.a.name)}${topS&&r.sal===topS?' 🏆':''}</td><td class="r">${r.c.p}</td><td class="r">${r.log}${r.log!==r.c.p?' <span class="pill near" title="No coincide con la lista">≠</span>':''}</td><td class="r"><span class="coin-s" style="display:inline-block">${COIN}</span><b>${r.sal}</b></td><td class="r">${p&&r.sal?p.pos+'.ª'+(p.tie?' (empate)':''):'—'}</td><td class="r"><b class="${r.pct===null?'na':r.pct>=85?'ok':r.pct>=70?'near':'far'}">${r.pct===null?'—':r.pct+'%'}</b></td></tr>`}).join('')}</tbody></table></div></div>
  <div class="card"><h3>Registro del mes: vuestra lista y lo que apunta cada nadador</h3>
  <div class="row mute" style="font-size:13px;margin:6px 0 10px"><span><span class="cmp sal">🐙</span> Coinciden (Pulpín)</span><span><span class="cmp onlyc">E</span> Solo en vuestra lista (falta su valoración)</span><span><span class="cmp onlya">N</span> Solo lo apunta el nadador</span><span><span class="cmp abs">✕</span> No asistió</span></div>
@@ -764,8 +780,9 @@ function vAsis(){
   api('saveAtt',TOKEN,d,ids,val).catch(e=>{att[d]=Object.assign({},att[d]||{});ids.forEach(id=>{if(prev[id]===undefined)delete att[d][id];else att[d][id]=prev[id]});ATTQ.err='⚠️ No se ha guardado: '+e.message+'. Vuelve a marcarlo.';if(S.tab==='asis')render()})
    .finally(()=>{ATTQ.n--;st()})};
  st();
- document.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{const cur=day[b.dataset.a];set([b.dataset.a],cur===b.dataset.v?null:b.dataset.v)});
- $('#all').onclick=()=>{const ids=grp.filter(a=>!day[a.id]).map(a=>a.id);if(ids.length)set(ids,'p')}}
+ document.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{const cur=day[b.dataset.a];set([b.dataset.a],cur==='p'?null:'p')});
+ if($('#goss'))$('#goss').onclick=()=>{S.agrp='ss';render()};
+ $('#all').onclick=()=>{const ids=grp.filter(a=>day[a.id]!=='p').map(a=>a.id);if(ids.length)set(ids,'p')}}
 const ATTQ={n:0,err:''};
 
 /* ---------- valoraciones ---------- */
@@ -805,7 +822,7 @@ function compText(c){const L=NORMS[c.norm]?`https://www.natacio.cat/wp-json/file
  return `**${c.name}** (${c.norm?'normativa '+c.norm:c.url?'normativa RFEN':c.ms?'calendario FCN Màster':'calendario del club'})\n• ${c.cat||''}${c.venue?' · '+c.venue:''}${c.pool?' · piscina '+c.pool:''}\n• Fechas: del ${fd(c.start)} al ${fd(c.end)}`+
  (c.mfrom?`\n• Marcas válidas: del ${fd(c.mfrom)} al ${fd(c.mto)}`:'')+(c.iopen?`\n• Inscripción: del ${fd(c.iopen)} al ${fd(c.iclose)}`:'')+(c.prov?`\n• Listado provisional: ${fd(c.prov)}${c.defi?' · definitivo: '+fd(c.defi):''}`:'')+(c.notes?`\n• Notas: ${c.notes}`:'')+(L?`\n• Normativa: ${L}`:'')}
 function markLine(m){const c=m.s+corr(m),mm=(se,lab)=>{const x=mInfo(m,se);return x?` · ${lab} ${x.min}: ${x.ok?'✅':'faltan '+x.gap.toFixed(2).replace('.',',')+' s ('+x.pct.toFixed(1).replace('.',',')+' %)'}`:''};return `• ${evName(m.ev)} (piscina ${m.pool} m): **${m.t}**${corr(m)?` (manual, corregida ${fmt(c)})`:''} · ${fd(m.date)}${m.place?' · '+m.place:''}${m.pts?' · '+m.pts+' pts':''}${mm('inv','mín. invierno')}${mm('ver','mín. verano')}`}
-function monthSal(a,mk){let n=0;Object.keys(att).forEach(d=>{if(d.startsWith(mk)&&isTrainDay(d,a.cat)&&d<=TODAY&&isSalowi(a.id,d))n++});return n}
+function monthSal(a,mk){let n=0;Object.keys(att).forEach(d=>{if(d.startsWith(mk)&&isTrainDay(d,a.cat,a)&&d<=TODAY&&isSalowi(a.id,d))n++});return n}
 function answer(raw){
  const q=nn(raw),coach=S.user.role==='coach',mk=ym(new Date());
  let who=coach?qAthletes(q):[athlete(S.aid)];

@@ -241,7 +241,9 @@ function groupAtt(att, me, athletes) {
   const out = {};
   Object.keys(att).forEach(d => {
     const day = att[d];
-    if (!Object.keys(day).some(k => grp[k])) return;
+    // viernes: Salvamento y Socorrismo, una sola lista para todos los grupos
+    const fri = new Date(d + 'T12:00:00Z').getUTCDay() === 5;
+    if (!(fri ? Object.keys(day).length > 0 : Object.keys(day).some(k => grp[k]))) return;
     out[d] = { _g: 1 };
     if (day[me.id]) out[d][me.id] = day[me.id];
   });
@@ -256,7 +258,7 @@ function teamRank(att, train, athletes, id) {
   const months = {};
   Object.keys(att).forEach(d => {
     const w = new Date(d + 'T12:00:00Z').getUTCDay();
-    if (w < 1 || w > 4 || d > today) return;
+    if (w < 1 || w > 5 || d > today) return; // lunes a jueves + viernes (Salvamento y Socorrismo)
     const mk = d.slice(0, 7), c = months[mk] || (months[mk] = {});
     Object.keys(att[d]).forEach(k => { if (att[d][k] === 'p' && valid(k, d)) c[k] = (c[k] || 0) + 1; });
   });
