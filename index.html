@@ -248,20 +248,26 @@ async function loadFCN(){if(FCN.items||FCN.busy||FCN.err)return;FCN.busy=true;
 function fcnCal(){const it=(FCN.items||[]).filter(x=>/calendari/i.test(x.title)).sort((a,b)=>b.date.localeCompare(a.date))[0];
  const mine='2026-10-26';return it?{id:it.id,date:it.date,newer:it.date>mine||String(it.id)!=='22616'}:null}
 /* Avisos de plazos de inscripción para el entrenador: abre pronto (≤7 días), abierto y cerrado hace poco (≤7 días) */
+/* Enlace a la normativa de una competición: URL propia (RFEN), docId Máster o código N de la FCN (N.NN → fichero 22510+NN, salvo las de NORMS) */
+function normUrl(c){if(c.url)return c.url;if(c.ms&&c.pdf)return fcnFile(c.pdf);const n=String(c.norm||'');if(NORMS[n])return fcnFile(NORMS[n]);const m=n.match(/^N(\d{2})$/);return m?fcnFile(22510+(+m[1])):''}
+/* Plazos de inscripción: la competición sigue en la tarjeta hasta que acaba (inscripción, listados provisional y definitivo y fechas de competición) */
 function inscCard(){const el=$('#ic');if(!el)return;
- const L=D.comps.filter(c=>c.iclose).map(c=>{const cl=daysTo(c.iclose),o=c.iopen?daysTo(c.iopen):(cl<=21?0:99);
-  const st=o>0?(o<=7?'soon':null):cl>=0?'open':cl>=-7?'closed':null;return st?{c,st,o,cl}:null}).filter(Boolean)
-  .sort((a,b)=>({open:0,soon:1,closed:2}[a.st]-{open:0,soon:1,closed:2}[b.st])||a.c.iclose.localeCompare(b.c.iclose));
+ const L=D.comps.filter(c=>c.iclose).map(c=>{const cl=daysTo(c.iclose),o=c.iopen?daysTo(c.iopen):(cl<=21?0:99),end=c.end||c.start;
+  const st=o>0?(o<=7?'soon':null):cl>=0?'open':(c.start&&c.start<=TODAY&&end>=TODAY)?'live':(end&&end>=TODAY)?'closed':(!end&&cl>=-7)?'closed':null;return st?{c,st,o,cl}:null}).filter(Boolean)
+  .sort((a,b)=>({live:0,open:1,soon:2,closed:3}[a.st]-{live:0,open:1,soon:2,closed:3}[b.st])||(a.st==='closed'?(a.c.start||'').localeCompare(b.c.start||''):a.c.iclose.localeCompare(b.c.iclose)));
  const when=n=>n===0?'hoy':n===1?'mañana':'en '+n+' días';
+ const lst=(lab,d)=>d?` · ${lab} ${d<TODAY?'publicado el':d===TODAY?'sale hoy':'el'} ${d===TODAY?'('+fd(d)+')':fd(d)}`:'';
  const line=x=>{const c=x.c;let ic,txt,cls='';
-  if(x.st==='open'){ic=x.cl<=2?'🔴':x.cl<=5?'🟠':'🟢';txt=`<b>Inscripción ${c.iopen?'abierta':'(fin del plazo)'}</b> · cierra ${when(x.cl)} (${fd(c.iclose)})`;cls=x.cl<=2?' new':''}
-  else if(x.st==='soon'){ic='🔵';txt=`<b>Abre ${when(x.o)}</b> (${fd(c.iopen)}) · cierra el ${fd(c.iclose)}`}
-  else{ic='⚫';txt=`<b>Cerrada</b> el ${fd(c.iclose)}${c.prov&&c.prov>=TODAY?' · listado provisional el '+fd(c.prov):''}${c.defi&&c.defi>=TODAY?' · definitivo el '+fd(c.defi):''}`}
-  return `<div class="nfi${cls}" style="display:block"><b>${ic} ${esc(c.name)}</b>${c.norm?` <span class="pill na">${esc(c.norm)}</span>`:''}<br><span class="mute">${txt} · competición ${c.end&&c.end!==c.start?fd(c.start)+' – '+fd(c.end):fd(c.start)}</span></div>`};
+  if(x.st==='open'){ic=x.cl<=2?'🔴':x.cl<=5?'🟠':'🟢';txt=`<b>Inscripción ${c.iopen?'abierta':'(fin del plazo)'}</b> · cierra ${when(x.cl)} (${fd(c.iclose)})${lst('provisional',c.prov)}${lst('definitivo',c.defi)}`;cls=x.cl<=2?' new':''}
+  else if(x.st==='soon'){ic='🔵';txt=`<b>Abre ${when(x.o)}</b> (${fd(c.iopen)}) · cierra el ${fd(c.iclose)}${lst('provisional',c.prov)}${lst('definitivo',c.defi)}`}
+  else if(x.st==='live'){ic='🏁';txt=`<b>En competición</b>`}
+  else{ic='⚫';txt=`<b>Inscripción cerrada</b> el ${fd(c.iclose)}${lst('provisional',c.prov)}${lst('definitivo',c.defi)}`;const nx=[c.prov,c.defi].filter(d=>d&&d>=TODAY)[0];if(nx&&daysTo(nx)<=1)cls=' new'}
+  const st=c.start?daysTo(c.start):null,u=normUrl(c);
+  return `<div class="nfi${cls}" style="display:block"><b>${ic} ${esc(c.name)}</b>${c.norm?` <span class="pill na">${esc(c.norm)}</span>`:''}<br><span class="mute">${txt} · competición ${c.end&&c.end!==c.start?fd(c.start)+' – '+fd(c.end):fd(c.start)}${st!==null&&st>0?` (${leftTxt(st).toLowerCase()})`:''}</span>${u?`<br><a href="${u}" target="_blank" rel="noopener">📄 Normativa</a>`:''}</div>`};
  const urgent=L.some(x=>x.st==='open'&&x.cl<=2);
  el.innerHTML=`<div class="card stack" ${urgent?'style="border:2px solid var(--bad)"':''}><h3>🗓️ Plazos de inscripción</h3>
-  ${L.length?`<div class="alist">${L.map(line).join('')}</div>`:'<p class="mute" style="margin:0">Ningún plazo de inscripción abierto, a punto de abrir o recién cerrado.</p>'}
-  <p class="mute" style="margin:0">🟢 abierto · 🟠 cierra en 5 días o menos · 🔴 cierra en 2 días o menos · 🔵 abre en los próximos 7 días · ⚫ cerrado en los últimos 7 días. Fechas del Calendario normativas del Excel.</p></div>`}
+  ${L.length?`<div class="alist">${L.map(line).join('')}</div>`:'<p class="mute" style="margin:0">Ninguna inscripción abierta, a punto de abrir o pendiente de competir.</p>'}
+  <p class="mute" style="margin:0">🟢 abierta · 🟠 cierra en 5 días o menos · 🔴 cierra en 2 días o menos · 🔵 abre en los próximos 7 días · ⚫ cerrada, pendiente de listados y de competir · 🏁 en competición. Cada competición se queda aquí hasta que acaba. Fechas del Calendario normativas del Excel.</p></div>`}
 /* Avisos de normativas para el entrenador: novedades FCN de Natació (sección 2) y Màsters (sección 7) */
 const NF={items:null,err:false,busy:false};
 /* Normativas FCN que el club no quiere mostrar en la app */
